@@ -11,8 +11,11 @@ from ..base import BaseTool, ToolContext, ToolResult
 class ExecuteCommandTool(BaseTool):
     name = "execute_command"
     description = (
-        "Execute a shell command and return its output. "
-        "Commands run in the working directory with a timeout."
+        "Execute a shell command and return its output. Commands run in the working directory "
+        "with a timeout. When you need to execute a CLI command, you must provide a clear "
+        "explanation of what the command does. Prefer to execute complex CLI commands over "
+        "creating executable scripts, since they are more flexible and easier to run.\n\n"
+        "Example: { \"command\": \"python -m pytest tests/ -v\" }"
     )
     parameters = {
         "type": "object",
@@ -27,6 +30,7 @@ class ExecuteCommandTool(BaseTool):
             },
         },
         "required": ["command"],
+        "additionalProperties": False,
     }
     groups = ["command"]
 

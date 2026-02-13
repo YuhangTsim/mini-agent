@@ -228,6 +228,7 @@ class OpenAIProvider(BaseProvider):
             "function": {
                 "name": tool.name,
                 "description": tool.description,
+                "strict": True,
                 "parameters": tool.parameters,
             },
         }

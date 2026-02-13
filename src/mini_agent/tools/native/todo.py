@@ -12,7 +12,7 @@ class UpdateTodoListTool(BaseTool):
     name = "update_todo_list"
     description = (
         "Update the current task's todo/checklist. Provide the full list of items. "
-        "Each item has text and a done boolean."
+        "Each item has text and a done boolean. Use this to track progress on multi-step tasks."
     )
     parameters = {
         "type": "object",
@@ -26,11 +26,13 @@ class UpdateTodoListTool(BaseTool):
                         "done": {"type": "boolean", "description": "Whether the item is done"},
                     },
                     "required": ["text", "done"],
+                    "additionalProperties": False,
                 },
                 "description": "The complete list of todo items",
             },
         },
         "required": ["items"],
+        "additionalProperties": False,
     }
     always_available = True
 

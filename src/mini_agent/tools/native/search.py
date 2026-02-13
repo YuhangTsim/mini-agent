@@ -14,14 +14,15 @@ class SearchFilesTool(BaseTool):
     name = "search_files"
     description = (
         "Search for a regex pattern across files in a directory. "
-        "Returns matching lines with file paths and line numbers."
+        "Returns matching lines with file paths and line numbers.\n\n"
+        "Example: { \"path\": \"src\", \"pattern\": \"def main\", \"glob\": \"*.py\" }"
     )
     parameters = {
         "type": "object",
         "properties": {
             "path": {
                 "type": "string",
-                "description": "The directory to search in (relative to working directory or absolute)",
+                "description": "The directory to search in, relative to the workspace",
             },
             "pattern": {
                 "type": "string",
@@ -33,6 +34,7 @@ class SearchFilesTool(BaseTool):
             },
         },
         "required": ["path", "pattern"],
+        "additionalProperties": False,
     }
     groups = ["read"]
 
@@ -95,13 +97,17 @@ class SearchFilesTool(BaseTool):
 
 class ListFilesTool(BaseTool):
     name = "list_files"
-    description = "List files and directories at the given path. Shows the directory tree structure."
+    description = (
+        "List files and directories at the given path. Use recursive=true to see the full tree structure. "
+        "This is more effective than running `ls` via execute_command.\n\n"
+        "Example: { \"path\": \".\", \"recursive\": true }"
+    )
     parameters = {
         "type": "object",
         "properties": {
             "path": {
                 "type": "string",
-                "description": "The directory path to list (relative to working directory or absolute)",
+                "description": "The directory path to list, relative to the workspace",
             },
             "recursive": {
                 "type": "boolean",
@@ -109,6 +115,7 @@ class ListFilesTool(BaseTool):
             },
         },
         "required": ["path"],
+        "additionalProperties": False,
     }
     groups = ["read"]
 

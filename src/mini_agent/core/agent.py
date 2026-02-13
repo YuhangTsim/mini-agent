@@ -49,29 +49,57 @@ class Agent:
         self.callbacks = callbacks or AgentCallbacks()
 
     def _build_system_prompt(self, mode: ModeConfig, task: Task) -> str:
-        """Build a system prompt from mode config and available tools."""
-        available_tools = self.registry.get_tools_for_mode(mode.tool_groups)
-        tool_desc_lines = []
-        for t in available_tools:
-            tool_desc_lines.append(f"- {t.name}: {t.description}")
-        tools_section = "\n".join(tool_desc_lines) if tool_desc_lines else "(no tools)"
+        """Build a system prompt from mode config for child tasks and mode switches.
+
+        Uses the same structure as PromptBuilder but without needing the full
+        settings/skills context.  Good enough for recursive child tasks.
+        """
+        working_dir = task.working_directory or self.settings.working_directory
 
         parts = [
             mode.role_definition,
             "",
-            "# Available Tools",
-            tools_section,
+            "====",
+            "",
+            "TOOL USE",
+            "",
+            (
+                "You have access to a set of tools that are executed upon the user's approval. "
+                "Use the provider-native tool-calling mechanism. You must call at least one tool "
+                "per assistant response when working on a task."
+            ),
+            "",
+            "====",
+            "",
+            "RULES",
+            "",
+            f"- The project base directory is: {working_dir}",
+            "- All file paths must be relative to this directory unless absolute paths are specified.",
+            "- Always read a file before editing it.",
+            "- When you've completed your task, you must use the attempt_completion tool to present the result.",
+            "- NEVER end attempt_completion result with a question or request for further conversation.",
+            "- Your goal is to accomplish the user's task, NOT engage in back and forth conversation.",
         ]
 
         if mode.custom_instructions:
-            parts.extend(["", "# Instructions", mode.custom_instructions])
+            parts.extend(["", "## Mode-Specific Instructions", mode.custom_instructions])
 
         parts.extend([
             "",
-            "# Environment",
-            f"- Working directory: {task.working_directory or self.settings.working_directory}",
-            f"- Platform: {platform.system()}",
-            f"- Task mode: {mode.name} ({mode.slug})",
+            "====",
+            "",
+            "SYSTEM INFORMATION",
+            "",
+            f"Operating System: {platform.system()}",
+            f"Current Workspace Directory: {working_dir}",
+            f"Current Mode: {mode.name} ({mode.slug})",
+            "",
+            "====",
+            "",
+            "OBJECTIVE",
+            "",
+            "You accomplish the given task iteratively, breaking it down into clear steps.",
+            "Once you've completed the task, use the attempt_completion tool to present the result.",
         ])
 
         return "\n".join(parts)

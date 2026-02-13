@@ -10,16 +10,22 @@ from ..base import BaseTool, ToolContext, ToolResult
 
 class ReadFileTool(BaseTool):
     name = "read_file"
-    description = "Read the contents of a file at the given path. Returns the file content with line numbers."
+    description = (
+        "Read a file and return its contents with line numbers. "
+        "IMPORTANT: This tool reads exactly one file per call. If you need multiple files, "
+        "issue multiple parallel read_file calls.\n\n"
+        "Example: { \"path\": \"src/app.py\" }"
+    )
     parameters = {
         "type": "object",
         "properties": {
             "path": {
                 "type": "string",
-                "description": "The path of the file to read (relative to working directory or absolute)",
+                "description": "Path to the file to read, relative to the workspace",
             },
         },
         "required": ["path"],
+        "additionalProperties": False,
     }
     groups = ["read"]
 
@@ -51,20 +57,26 @@ class ReadFileTool(BaseTool):
 
 class WriteFileTool(BaseTool):
     name = "write_file"
-    description = "Write content to a file. Creates the file if it doesn't exist, overwrites if it does."
+    description = (
+        "Write content to a file. Creates the file if it doesn't exist, overwrites if it does. "
+        "You MUST provide the COMPLETE file content. Do not use partial updates or placeholders. "
+        "Always read a file first if you need to modify existing content.\n\n"
+        "Example: { \"path\": \"src/app.py\", \"content\": \"print('hello')\\n\" }"
+    )
     parameters = {
         "type": "object",
         "properties": {
             "path": {
                 "type": "string",
-                "description": "The path of the file to write (relative to working directory or absolute)",
+                "description": "Path to the file to write, relative to the workspace",
             },
             "content": {
                 "type": "string",
-                "description": "The content to write to the file",
+                "description": "The complete content to write to the file",
             },
         },
         "required": ["path", "content"],
+        "additionalProperties": False,
     }
     groups = ["edit"]
 
@@ -86,18 +98,19 @@ class EditFileTool(BaseTool):
     name = "edit_file"
     description = (
         "Make an exact string replacement in a file. The old_string must match exactly "
-        "(including whitespace/indentation). Use this for targeted edits."
+        "(including whitespace/indentation). Use this for targeted, surgical edits.\n\n"
+        "Example: { \"path\": \"src/app.py\", \"old_string\": \"def hello():\", \"new_string\": \"def greet():\" }"
     )
     parameters = {
         "type": "object",
         "properties": {
             "path": {
                 "type": "string",
-                "description": "The path of the file to edit",
+                "description": "Path to the file to edit, relative to the workspace",
             },
             "old_string": {
                 "type": "string",
-                "description": "The exact string to find and replace",
+                "description": "The exact string to find and replace (must be unique in the file)",
             },
             "new_string": {
                 "type": "string",
@@ -105,6 +118,7 @@ class EditFileTool(BaseTool):
             },
         },
         "required": ["path", "old_string", "new_string"],
+        "additionalProperties": False,
     }
     groups = ["edit"]
 
