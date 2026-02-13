@@ -39,6 +39,8 @@ Thumbs.db
 
 # Runtime data
 .mini-agent/
+llm_calls.jsonl
+*.jsonl
 
 # OpenCode
 .opencode/
