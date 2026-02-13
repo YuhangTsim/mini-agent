@@ -22,9 +22,16 @@ class ProviderConfig:
     base_url: str | None = None
     max_tokens: int = 4096
     temperature: float = 0.0
+    max_context: int | None = None
+    max_output: int | None = None
 
-    def resolve_api_key(self) -> str:
-        """Resolve API key from config or environment."""
+    @property
+    def is_openai_compatible(self) -> bool:
+        """Whether this provider uses the OpenAI-compatible API."""
+        return self.name == "openai" or self.base_url is not None
+
+    def resolve_api_key(self) -> str | None:
+        """Resolve API key from config or environment. Returns None if not set."""
         if self.api_key:
             return self.api_key
         env_map = {
@@ -32,7 +39,7 @@ class ProviderConfig:
             "anthropic": "ANTHROPIC_API_KEY",
         }
         env_var = env_map.get(self.name, f"{self.name.upper()}_API_KEY")
-        return os.environ.get(env_var, "")
+        return os.environ.get(env_var) or None
 
 
 @dataclass
@@ -109,6 +116,8 @@ class Settings:
             base_url=provider_data.get("base_url"),
             max_tokens=provider_data.get("max_tokens", 4096),
             temperature=provider_data.get("temperature", 0.0),
+            max_context=provider_data.get("max_context"),
+            max_output=provider_data.get("max_output"),
         )
 
         approval_data = data.get("tool_approval", {})

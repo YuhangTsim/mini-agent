@@ -43,9 +43,20 @@ def _debug_log(entry: dict[str, Any]) -> None:
 class OpenAIProvider(BaseProvider):
     """OpenAI API provider with streaming and function calling."""
 
-    def __init__(self, api_key: str, model: str = "gpt-4o", base_url: str | None = None):
+    def __init__(
+        self,
+        api_key: str,
+        model: str = "gpt-4o",
+        base_url: str | None = None,
+        max_context: int | None = None,
+        max_output: int | None = None,
+        provider_name: str = "openai",
+    ):
         self.model = model
         self._base_url = base_url
+        self._provider_name = provider_name
+        self._max_context = max_context
+        self._max_output = max_output
         self._client = AsyncOpenAI(api_key=api_key, base_url=base_url)
         try:
             self._encoding = tiktoken.encoding_for_model(model)
@@ -69,8 +80,12 @@ class OpenAIProvider(BaseProvider):
             "max_tokens": max_tokens,
             "temperature": temperature,
             "stream": True,
-            "stream_options": {"include_usage": True},
         }
+
+        # Only include stream_options for native OpenAI — many compatible
+        # providers don't support it and the fallback estimation handles it.
+        if self._provider_name == "openai":
+            kwargs["stream_options"] = {"include_usage": True}
 
         if tools:
             kwargs["tools"] = [self._tool_to_openai(t) for t in tools]
@@ -213,10 +228,10 @@ class OpenAIProvider(BaseProvider):
 
     def get_model_info(self) -> ModelInfo:
         return ModelInfo(
-            provider="openai",
+            provider=self._provider_name,
             model_id=self.model,
-            max_context=128000,
-            max_output=4096,
+            max_context=self._max_context or 128000,
+            max_output=self._max_output or 4096,
             supports_vision=self.model in VISION_MODELS,
             supports_tools=True,
         )
