@@ -48,6 +48,19 @@ class ModelInfo:
     supports_tools: bool = True
 
 
+PROVIDER_MODELS: dict[str, list[ModelInfo]] = {
+    "openai": [
+        ModelInfo(provider="openai", model_id="gpt-4o", max_context=128000, max_output=4096, supports_vision=True, supports_tools=True),
+        ModelInfo(provider="openai", model_id="gpt-4o-mini", max_context=128000, max_output=4096, supports_vision=True, supports_tools=True),
+        ModelInfo(provider="openai", model_id="gpt-4-turbo", max_context=128000, max_output=4096, supports_vision=True, supports_tools=True),
+        ModelInfo(provider="openai", model_id="gpt-3.5-turbo", max_context=16385, max_output=4096, supports_vision=False, supports_tools=True),
+        ModelInfo(provider="openai", model_id="o1", max_context=200000, max_output=100000, supports_vision=True, supports_tools=True),
+        ModelInfo(provider="openai", model_id="o1-mini", max_context=128000, max_output=65536, supports_vision=False, supports_tools=True),
+        ModelInfo(provider="openai", model_id="o3-mini", max_context=200000, max_output=100000, supports_vision=False, supports_tools=True),
+    ],
+}
+
+
 class BaseProvider(ABC):
     """Abstract base class for LLM providers."""
 

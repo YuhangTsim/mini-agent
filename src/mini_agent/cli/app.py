@@ -22,7 +22,7 @@ from ..core.mode import ModeConfig, get_mode, list_modes
 from ..persistence.export import export_task
 from ..persistence.models import Task, TaskStatus, TokenUsage, new_id
 from ..persistence.store import Store
-from ..providers.registry import create_provider
+from ..providers.registry import create_provider, list_models
 from ..tools.base import ToolRegistry, ToolResult
 from ..tools.native import get_all_native_tools
 from ..tools.native.skill_tool import SkillTool
@@ -71,7 +71,6 @@ class CLICallbacks:
             console.print(f"  [green]OK[/green]")
             if output.strip():
                 console.print(f"[dim]{output}[/dim]")
-        self.start_live()
 
     async def on_tool_approval_request(
         self, name: str, call_id: str, params: dict
@@ -112,6 +111,9 @@ class CLICallbacks:
             console.print(
                 f"[dim]tokens: {usage.input_tokens} in / {usage.output_tokens} out[/dim]"
             )
+        # Restart live for the next LLM iteration (if agent loop continues
+        # after tool calls, the next streaming response needs a live context)
+        self.start_live()
 
 
 async def _handle_history(store: Store, args: str) -> None:
@@ -215,6 +217,57 @@ async def _print_task_tree(store: Store, task: Task, indent: int) -> None:
         await _print_task_tree(store, child, indent + 1)
 
 
+async def _handle_model(settings: Settings, agent: Agent, args: str) -> None:
+    """Handle /model command."""
+    args = args.strip()
+    current_info = agent.provider.get_model_info()
+
+    if not args:
+        # Show current model info
+        console.print(f"[bold]Current model:[/bold] {current_info.model_id}")
+        console.print(f"  Provider: {current_info.provider}")
+        console.print(f"  Context window: {current_info.max_context:,}")
+        console.print(f"  Max output: {current_info.max_output:,}")
+        console.print(f"  Vision: {'yes' if current_info.supports_vision else 'no'}")
+        console.print(f"  Tools: {'yes' if current_info.supports_tools else 'no'}")
+        return
+
+    if args == "list":
+        models = list_models(settings.provider.name)
+        if not models:
+            console.print(f"[dim]No model catalog for provider '{settings.provider.name}'.[/dim]")
+            return
+        table = Table(title=f"Models ({settings.provider.name})")
+        table.add_column("Model", style="bold")
+        table.add_column("Context", justify="right")
+        table.add_column("Max Output", justify="right")
+        table.add_column("Vision")
+        table.add_column("Tools")
+        for m in models:
+            marker = " *" if m.model_id == current_info.model_id else ""
+            table.add_row(
+                f"{m.model_id}{marker}",
+                f"{m.max_context:,}",
+                f"{m.max_output:,}",
+                "yes" if m.supports_vision else "no",
+                "yes" if m.supports_tools else "no",
+            )
+        console.print(table)
+        return
+
+    # Hot-swap to a new model
+    new_model = args
+    old_model = settings.provider.model
+    settings.provider.model = new_model
+    try:
+        new_provider = create_provider(settings.provider)
+        agent.provider = new_provider
+        console.print(f"Switched model: [bold]{old_model}[/bold] → [bold]{new_model}[/bold]")
+    except Exception as e:
+        settings.provider.model = old_model
+        console.print(f"[red]Failed to switch model:[/red] {e}")
+
+
 async def run_repl(settings: Settings) -> None:
     """Main REPL loop with full agent support."""
     settings.ensure_dirs()
@@ -254,7 +307,7 @@ async def run_repl(settings: Settings) -> None:
         )
     )
     console.print(
-        "[dim]Commands: /mode /tools /todo /task /history /export /quit[/dim]\n"
+        "[dim]Commands: /mode /model /tools /todo /task /history /export /quit[/dim]\n"
     )
 
     task = Task(
@@ -325,6 +378,11 @@ async def run_repl(settings: Settings) -> None:
                     console.print(f"Switched to [bold]{new_mode}[/bold] mode.")
                 except KeyError as e:
                     console.print(f"[red]{e}[/red]")
+            continue
+
+        if user_input.startswith("/model"):
+            args = user_input[len("/model"):].strip()
+            await _handle_model(settings, agent, args)
             continue
 
         if user_input == "/todo":

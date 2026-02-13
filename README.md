@@ -67,6 +67,7 @@ src/mini_agent/
 | Command | Description |
 |---------|-------------|
 | `/mode [name]` | List modes or switch to a mode |
+| `/model [list\|name]` | Show current model, list available, or switch |
 | `/tools` | List tools available in current mode |
 | `/todo` | Show current task's todo list |
 | `/task [tree]` | Show current task info or task tree |

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from ..config.settings import ProviderConfig
-from .base import BaseProvider
+from .base import PROVIDER_MODELS, BaseProvider, ModelInfo
 from .openai import OpenAIProvider
 
 
@@ -29,3 +29,8 @@ def create_provider(config: ProviderConfig) -> BaseProvider:
         )
 
     raise ValueError(f"Unknown provider: {config.name}. Available: {list(_PROVIDERS.keys())}")
+
+
+def list_models(provider_name: str) -> list[ModelInfo]:
+    """Return available models for a provider."""
+    return PROVIDER_MODELS.get(provider_name, [])

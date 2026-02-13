@@ -7,8 +7,10 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, AsyncIterator, Callable, Awaitable
 
+import platform
+
 from ..persistence.models import (
-    Message, MessageRole, Task, TokenUsage, TodoItem, ToolCall, new_id,
+    Message, MessageRole, Task, TaskStatus, TokenUsage, TodoItem, ToolCall, new_id,
 )
 from ..persistence.store import Store
 from ..providers.base import BaseProvider, StreamEvent, StreamEventType, ToolDefinition
@@ -46,6 +48,60 @@ class Agent:
         self.settings = settings
         self.callbacks = callbacks or AgentCallbacks()
 
+    def _build_system_prompt(self, mode: ModeConfig, task: Task) -> str:
+        """Build a system prompt from mode config and available tools."""
+        available_tools = self.registry.get_tools_for_mode(mode.tool_groups)
+        tool_desc_lines = []
+        for t in available_tools:
+            tool_desc_lines.append(f"- {t.name}: {t.description}")
+        tools_section = "\n".join(tool_desc_lines) if tool_desc_lines else "(no tools)"
+
+        parts = [
+            mode.role_definition,
+            "",
+            "# Available Tools",
+            tools_section,
+        ]
+
+        if mode.custom_instructions:
+            parts.extend(["", "# Instructions", mode.custom_instructions])
+
+        parts.extend([
+            "",
+            "# Environment",
+            f"- Working directory: {task.working_directory or self.settings.working_directory}",
+            f"- Platform: {platform.system()}",
+            f"- Task mode: {mode.name} ({mode.slug})",
+        ])
+
+        return "\n".join(parts)
+
+    async def _run_child_task(
+        self, parent_task: Task, mode_slug: str, description: str
+    ) -> str:
+        """Create and run a child task, returning its result."""
+        child_mode = get_mode(mode_slug)
+        child_task = Task(
+            parent_id=parent_task.id,
+            root_id=parent_task.root_id or parent_task.id,
+            mode=mode_slug,
+            status=TaskStatus.ACTIVE,
+            title=description[:100],
+            description=description,
+            working_directory=parent_task.working_directory or self.settings.working_directory,
+        )
+        await self.store.add_task(child_task)
+        parent_task.children.append(child_task.id)
+
+        child_system_prompt = self._build_system_prompt(child_mode, child_task)
+        child_result = await self.run(
+            task=child_task,
+            user_message=description,
+            conversation=[],
+            system_prompt=child_system_prompt,
+        )
+        return child_task.result or child_result or "(child task produced no output)"
+
     async def run(
         self,
         task: Task,
@@ -78,8 +134,9 @@ class Agent:
 
         max_iterations = 25  # Safety limit for tool call loops
         final_text = ""
+        loop_completed_normally = True
 
-        for _ in range(max_iterations):
+        for iteration in range(max_iterations):
             # Call LLM
             text_response = ""
             pending_tool_calls: list[dict[str, str]] = []
@@ -118,11 +175,11 @@ class Agent:
 
             # Update token tracking
             task.token_usage.add(usage)
-            if self.callbacks.on_message_end:
-                await self.callbacks.on_message_end(usage)
 
             # If no tool calls, we're done
             if not pending_tool_calls:
+                if self.callbacks.on_message_end:
+                    await self.callbacks.on_message_end(usage)
                 if text_response:
                     final_text = text_response
                     # Store assistant message
@@ -132,7 +189,11 @@ class Agent:
                     assistant_msg.token_count = self.provider.count_tokens(text_response)
                     await self.store.add_message(assistant_msg)
                     conversation.append({"role": "assistant", "content": text_response})
+                loop_completed_normally = False
                 break
+
+            # Has tool calls — defer on_message_end until after tool execution
+            # so token counts don't appear between tool name and tool result.
 
             # Build the assistant message with tool calls for conversation history
             assistant_message: dict[str, Any] = {"role": "assistant"}
@@ -162,7 +223,8 @@ class Agent:
             )
             await self.store.add_message(assistant_msg)
 
-            # Execute tool calls
+            # Execute tool calls, collecting results with conversation indices
+            tool_results: list[tuple[dict[str, str], ToolResult, int]] = []
             for tc in pending_tool_calls:
                 result = await self._execute_tool_call(
                     task=task,
@@ -173,13 +235,97 @@ class Agent:
                 )
 
                 # Add tool result to conversation (OpenAI format)
+                tool_content = result.output if not result.is_error else f"Error: {result.error}"
+                conv_index = len(conversation)
                 conversation.append({
                     "role": "tool",
                     "tool_call_id": tc["id"],
-                    "content": result.output if not result.is_error else f"Error: {result.error}",
+                    "content": tool_content,
                 })
+                tool_results.append((tc, result, conv_index))
+
+            # Now emit on_message_end (after tool results are displayed)
+            if self.callbacks.on_message_end:
+                await self.callbacks.on_message_end(usage)
+
+            # --- Process agent signals from tool results ---
+            signal_break = False
+            signal_continue = False
+
+            for tc, result, conv_idx in tool_results:
+                if result.is_error:
+                    continue
+                output = result.output
+
+                # attempt_completion: mark task done and break
+                if output.startswith("__attempt_completion__:"):
+                    result_text = output[len("__attempt_completion__:"):]
+                    task.status = TaskStatus.COMPLETED
+                    task.result = result_text
+                    final_text = result_text
+                    # Replace raw signal in conversation with friendly message
+                    conversation[conv_idx]["content"] = f"Task completed: {result_text}"
+                    signal_break = True
+                    break
+
+                # switch_mode: update mode, rebuild tools/prompt, continue
+                if output.startswith("__switch_mode__:"):
+                    payload = output[len("__switch_mode__:"):]
+                    parts = payload.split(":", 1)
+                    new_mode_slug = parts[0]
+                    reason = parts[1] if len(parts) > 1 else ""
+                    try:
+                        mode = get_mode(new_mode_slug)
+                    except KeyError:
+                        conversation[conv_idx]["content"] = f"Error: unknown mode '{new_mode_slug}'"
+                        continue
+                    task.mode = new_mode_slug
+                    available_tools = self.registry.get_tools_for_mode(mode.tool_groups)
+                    tool_definitions = [
+                        ToolDefinition(
+                            name=t.name,
+                            description=t.description,
+                            parameters=t.parameters,
+                        )
+                        for t in available_tools
+                    ]
+                    system_prompt = self._build_system_prompt(mode, task)
+                    friendly = f"Switched to {mode.name} mode."
+                    if reason:
+                        friendly += f" Reason: {reason}"
+                    conversation[conv_idx]["content"] = friendly
+                    signal_continue = True
+                    continue
+
+                # new_task: run child task, feed result back
+                if output.startswith("__new_task__:"):
+                    payload = output[len("__new_task__:"):]
+                    parts = payload.split(":", 1)
+                    child_mode = parts[0]
+                    child_desc = parts[1] if len(parts) > 1 else ""
+                    child_result = await self._run_child_task(task, child_mode, child_desc)
+                    conversation[conv_idx]["content"] = f"Sub-task result:\n{child_result}"
+                    signal_continue = True
+                    continue
+
+            if signal_break:
+                loop_completed_normally = False
+                break
+            if signal_continue:
+                continue
 
             # Continue loop — LLM will process tool results
+
+        # Warn if max_iterations exhausted without a clean exit
+        if loop_completed_normally:
+            warning = (
+                f"\n⚠ Reached maximum iterations ({max_iterations}) without completing. "
+                "The task may be incomplete. Consider breaking it into smaller steps."
+            )
+            if self.callbacks.on_text_delta:
+                await self.callbacks.on_text_delta(warning)
+            if not final_text:
+                final_text = warning
 
         await self.store.update_task(task)
         return final_text
