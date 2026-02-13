@@ -66,6 +66,16 @@ class CLICallbacks:
             console.print(f"  [red]Error:[/red] {result.error}")
         else:
             output = result.output
+            # Render attempt_completion results as a highlighted panel
+            if output.startswith("__attempt_completion__:"):
+                completion_text = output[len("__attempt_completion__:"):]
+                console.print()
+                console.print(Panel(
+                    Markdown(completion_text),
+                    title="Task Complete",
+                    border_style="green",
+                ))
+                return
             if len(output) > 500:
                 output = output[:500] + "..."
             console.print(f"  [green]OK[/green]")

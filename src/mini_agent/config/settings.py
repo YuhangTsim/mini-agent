@@ -53,6 +53,7 @@ class ApprovalConfig:
         "write_file": "always_ask",
         "edit_file": "always_ask",
         "execute_command": "always_ask",
+        "attempt_completion": "auto_approve",
         "*": "ask_once",
     })
 
