@@ -27,7 +27,7 @@ class AgentCallbacks:
     on_tool_call_start: Callable[[str, str, str], Awaitable[None]] | None = None  # id, name, args
     on_tool_call_end: Callable[[str, str, ToolResult], Awaitable[None]] | None = None
     on_tool_approval_request: Callable[[str, str, dict], Awaitable[str]] | None = None  # name, id, params -> "y"/"n"/"always"
-    request_user_input: Callable[[str], Awaitable[str]] | None = None
+    request_user_input: Callable[[str, list[str] | None], Awaitable[str]] | None = None
     on_message_end: Callable[[TokenUsage], Awaitable[None]] | None = None
 
 
@@ -437,7 +437,9 @@ class Agent:
             await self._store_tool_call(task.id, tool_name, tool_args_str, result, 0, status="denied")
             return result
 
-        if policy in (ApprovalPolicy.ALWAYS_ASK, ApprovalPolicy.ASK_ONCE):
+        if tool.skip_approval:
+            pass  # Skip approval flow entirely (e.g., ask_followup_question)
+        elif policy in (ApprovalPolicy.ALWAYS_ASK, ApprovalPolicy.ASK_ONCE):
             if self.callbacks.on_tool_approval_request:
                 response = await self.callbacks.on_tool_approval_request(
                     tool_name, tool_call_id, params

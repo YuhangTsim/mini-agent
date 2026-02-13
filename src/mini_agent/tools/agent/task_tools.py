@@ -105,6 +105,7 @@ class AttemptCompletionTool(BaseTool):
     }
     category = "agent"
     always_available = True
+    skip_approval = True
 
     async def execute(self, params: dict[str, Any], context: ToolContext) -> ToolResult:
         result = params["result"]

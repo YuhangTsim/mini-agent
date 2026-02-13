@@ -40,7 +40,7 @@ class ToolContext:
     working_directory: str = ""
     mode: str = "code"
     # Callback for tools that need user interaction (e.g., ask_followup_question)
-    request_user_input: Callable[[str], Awaitable[str]] | None = None
+    request_user_input: Callable[[str, list[str] | None], Awaitable[str]] | None = None
 
 
 class BaseTool(ABC):
@@ -52,6 +52,7 @@ class BaseTool(ABC):
     category: str = "native"  # "native" | "extension" | "agent"
     groups: list[str] = []  # Which tool groups include this tool
     always_available: bool = False  # Available regardless of mode
+    skip_approval: bool = False  # Skip [y/n/always] approval prompt
 
     @abstractmethod
     async def execute(self, params: dict[str, Any], context: ToolContext) -> ToolResult:

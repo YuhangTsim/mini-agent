@@ -104,9 +104,44 @@ class CLICallbacks:
             return "always"
         return "n"
 
-    async def request_user_input(self, question: str) -> str:
+    async def request_user_input(
+        self, question: str, suggestions: list[str] | None = None
+    ) -> str:
         self.stop_live()
         console.print(f"\n[cyan]Question:[/cyan] {question}")
+
+        if suggestions:
+            console.print()
+            for i, s in enumerate(suggestions, 1):
+                console.print(f"  [bold]{i}.[/bold] {s}")
+            other_num = len(suggestions) + 1
+            console.print(f"  [bold]{other_num}.[/bold] Other (type your own response)")
+            console.print()
+
+            response = await asyncio.get_event_loop().run_in_executor(
+                None,
+                lambda: self._session.prompt(f"  Select [1-{other_num}]: "),
+            )
+            response = response.strip()
+
+            # Check if it's a valid number selection
+            try:
+                choice = int(response)
+                if 1 <= choice <= len(suggestions):
+                    return suggestions[choice - 1]
+                elif choice == other_num:
+                    freetext = await asyncio.get_event_loop().run_in_executor(
+                        None,
+                        lambda: self._session.prompt("  > "),
+                    )
+                    return freetext.strip()
+            except ValueError:
+                pass
+
+            # Non-number input: treat as freetext directly
+            return response
+
+        # No suggestions — simple freetext prompt
         response = await asyncio.get_event_loop().run_in_executor(
             None,
             lambda: self._session.prompt("  > "),

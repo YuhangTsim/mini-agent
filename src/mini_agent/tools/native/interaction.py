@@ -46,6 +46,7 @@ class AskFollowupQuestionTool(BaseTool):
         "additionalProperties": False,
     }
     always_available = True
+    skip_approval = True
 
     async def execute(self, params: dict[str, Any], context: ToolContext) -> ToolResult:
         question = params["question"]
@@ -53,13 +54,8 @@ class AskFollowupQuestionTool(BaseTool):
         if context.request_user_input is None:
             return ToolResult.failure("User input not available in this context")
 
-        # Format question with suggestions
         suggestions = params.get("follow_up", [])
-        display = question
-        if suggestions:
-            display += "\n\nSuggested answers:"
-            for i, s in enumerate(suggestions, 1):
-                display += f"\n  {i}. {s['text']}"
+        suggestion_texts = [s["text"] for s in suggestions] if suggestions else None
 
-        response = await context.request_user_input(display)
+        response = await context.request_user_input(question, suggestion_texts)
         return ToolResult.success(f"User response: {response}")
