@@ -98,6 +98,10 @@ class Task:
     updated_at: datetime = field(default_factory=datetime.utcnow)
     completed_at: datetime | None = None
 
+    @property
+    def pending_todos(self) -> list[TodoItem]:
+        return [item for item in self.todo_list if not item.done]
+
     def to_row(self) -> dict[str, Any]:
         """Convert to a dict suitable for SQLite insertion."""
         return {

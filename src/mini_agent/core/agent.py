@@ -130,6 +130,32 @@ class Agent:
         )
         return child_task.result or child_result or "(child task produced no output)"
 
+    def _build_todo_directive(self, task: Task) -> str | None:
+        """If the task has pending todo items, return a directive for the LLM."""
+        pending = [item for item in task.todo_list if not item.done]
+        if not pending:
+            return None
+
+        done = [item for item in task.todo_list if item.done]
+        lines = ["## Plan Execution Status", ""]
+        if done:
+            for item in done:
+                lines.append(f"- [x] {item.text}")
+        for item in pending:
+            lines.append(f"- [ ] {item.text}")
+
+        lines.extend([
+            "",
+            f"Next pending item: **{pending[0].text}**",
+            "",
+            "Instructions:",
+            "- If this item is straightforward, execute it directly using your tools.",
+            "- If this item is complex or isolated, delegate it using the new_task tool.",
+            "- After completing an item, call update_todo_list to mark it done.",
+            "- Do NOT use attempt_completion until all items are done.",
+        ])
+        return "\n".join(lines)
+
     async def run(
         self,
         task: Task,
@@ -161,6 +187,8 @@ class Agent:
         await self.store.add_message(user_msg)
 
         max_iterations = 25  # Safety limit for tool call loops
+        todo_injection_count = 0
+        max_todo_injections = 15  # Subset of max_iterations
         final_text = ""
         loop_completed_normally = True
 
@@ -341,6 +369,13 @@ class Agent:
                 break
             if signal_continue:
                 continue
+
+            # --- Active todo execution: if pending items exist, inject directive ---
+            directive = self._build_todo_directive(task)
+            if directive:
+                todo_injection_count += 1
+                if todo_injection_count <= max_todo_injections:
+                    conversation.append({"role": "user", "content": directive})
 
             # Continue loop — LLM will process tool results
 
