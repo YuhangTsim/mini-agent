@@ -107,6 +107,60 @@ execute_command = "always_ask"
 "*" = "ask_once"
 ```
 
+### Providers
+
+Mini-Agent works with OpenAI and any OpenAI-compatible API. Set `base_url` to point to a compatible endpoint — the OpenAI client is used under the hood.
+
+API keys are resolved in order: `api_key` in config → `<NAME>_API_KEY` environment variable. Local providers that don't require authentication can omit the key entirely.
+
+You can optionally set `max_context` and `max_output` to specify the model's token limits (defaults to 128k context / 4096 output when not set).
+
+**OpenAI** (default):
+
+```toml
+[provider]
+name = "openai"
+model = "gpt-4o"
+```
+
+```bash
+export OPENAI_API_KEY="sk-..."
+```
+
+**Ollama** (local):
+
+```toml
+[provider]
+name = "ollama"
+model = "llama3"
+base_url = "http://localhost:11434/v1"
+max_context = 8192
+```
+
+**OpenRouter**:
+
+```toml
+[provider]
+name = "openrouter"
+model = "anthropic/claude-sonnet-4-20250514"
+base_url = "https://openrouter.ai/api/v1"
+```
+
+```bash
+export OPENROUTER_API_KEY="or-..."
+```
+
+**Any OpenAI-compatible API** (vLLM, LiteLLM, Together, etc.):
+
+```toml
+[provider]
+name = "together"
+model = "meta-llama/Llama-3-70b-chat-hf"
+base_url = "https://api.together.xyz/v1"
+max_context = 8192
+max_output = 4096
+```
+
 ## Skills
 
 Skills are markdown files with YAML frontmatter placed in `.mini-agent/skills/` or `~/.mini-agent/skills/`:
