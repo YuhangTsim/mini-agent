@@ -1,15 +1,25 @@
-# Dependencies
-node_modules/
-.pnp
-.pnp.js
-
-# Testing
-coverage/
-*.log
-
-# Production
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+*.egg
 dist/
 build/
+.eggs/
+*.whl
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+coverage/
+*.log
 
 # Environment
 .env
@@ -27,5 +37,16 @@ build/
 .DS_Store
 Thumbs.db
 
+# Runtime data
+.mini-agent/
+
 # OpenCode
 .opencode/
+
+# uv
+uv.lock
+
+# Node (for UI)
+node_modules/
+.pnp
+.pnp.js
