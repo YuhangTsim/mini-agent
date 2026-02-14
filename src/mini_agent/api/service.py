@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -42,6 +43,12 @@ class AgentService:
 
         # Active task conversations (task_id -> messages list for provider)
         self._conversations: dict[str, list[dict[str, Any]]] = {}
+
+        # Pending approval requests (approval_id -> asyncio.Future)
+        self._pending_approvals: dict[str, asyncio.Future] = {}
+
+        # Pending user input requests (input_id -> asyncio.Future)
+        self._pending_inputs: dict[str, asyncio.Future] = {}
 
     async def initialize(self) -> None:
         """Initialize all subsystems."""
@@ -205,11 +212,26 @@ class AgentService:
     def get_modes(self) -> list[ModeConfig]:
         return list_modes()
 
+    # --- Approval / Input Resolution ---
+
+    async def resolve_approval(self, approval_id: str, decision: str) -> None:
+        """Resolve a pending tool approval request."""
+        future = self._pending_approvals.pop(approval_id, None)
+        if future and not future.done():
+            future.set_result(decision)
+
+    async def resolve_input(self, input_id: str, answer: str) -> None:
+        """Resolve a pending user input request."""
+        future = self._pending_inputs.pop(input_id, None)
+        if future and not future.done():
+            future.set_result(answer)
+
     # --- Internal ---
 
     def _make_event_callbacks(self, task_id: str) -> AgentCallbacks:
         """Create callbacks that emit events to the event bus."""
         bus = self.event_bus
+        service = self
 
         async def on_text_delta(text: str) -> None:
             await bus.emit(Event(
@@ -237,6 +259,49 @@ class AgentService:
                 },
             ))
 
+        async def on_tool_approval_request(
+            name: str, call_id: str, params: dict,
+        ) -> str:
+            """Emit approval event and wait for client response."""
+            approval_id = new_id()
+            future: asyncio.Future[str] = asyncio.get_running_loop().create_future()
+            service._pending_approvals[approval_id] = future
+
+            await bus.emit(Event(
+                type=EventType.TOOL_APPROVAL_REQUIRED,
+                task_id=task_id,
+                data={
+                    "approval_id": approval_id,
+                    "tool": name,
+                    "call_id": call_id,
+                    "params": params,
+                },
+            ))
+
+            # Block until client resolves via POST /api/approvals/{id}
+            return await future
+
+        async def request_user_input(
+            question: str, suggestions: list[str] | None = None,
+        ) -> str:
+            """Emit input request event and wait for client response."""
+            input_id = new_id()
+            future: asyncio.Future[str] = asyncio.get_running_loop().create_future()
+            service._pending_inputs[input_id] = future
+
+            await bus.emit(Event(
+                type=EventType.USER_INPUT_REQUIRED,
+                task_id=task_id,
+                data={
+                    "input_id": input_id,
+                    "question": question,
+                    "suggestions": suggestions or [],
+                },
+            ))
+
+            # Block until client resolves via POST /api/inputs/{id}
+            return await future
+
         async def on_message_end(usage: TokenUsage) -> None:
             await bus.emit(Event(
                 type=EventType.MESSAGE_END,
@@ -251,5 +316,7 @@ class AgentService:
             on_text_delta=on_text_delta,
             on_tool_call_start=on_tool_call_start,
             on_tool_call_end=on_tool_call_end,
+            on_tool_approval_request=on_tool_approval_request,
+            request_user_input=request_user_input,
             on_message_end=on_message_end,
         )

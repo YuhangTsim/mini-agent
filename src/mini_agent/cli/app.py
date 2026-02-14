@@ -540,5 +540,41 @@ def export(task_id, output, tree, config_path):
     asyncio.run(_export())
 
 
+@main.command()
+@click.option("--host", default="127.0.0.1", help="Host to bind to")
+@click.option("--port", "-p", default=8080, help="Port to bind to")
+@click.option("--static-dir", default=None, help="Directory to serve static files from")
+@click.option("--config", "-c", "config_path", default=None)
+def serve(host, port, static_dir, config_path):
+    """Start the HTTP API server."""
+    try:
+        from ..api.http.server import run_server
+    except ImportError as e:
+        click.echo(
+            "Error: FastAPI dependencies not installed.\n"
+            "Install with: uv pip install -e '.[api]'",
+            err=True,
+        )
+        return
+
+    settings = Settings.load(config_path)
+
+    # Resolve static-dir to absolute path
+    if static_dir:
+        static_dir = os.path.abspath(static_dir)
+
+    click.echo(f"Starting Mini-Agent HTTP API server on {host}:{port}")
+    if static_dir:
+        click.echo(f"Serving static files from: {static_dir}")
+    click.echo("Press Ctrl+C to stop")
+
+    asyncio.run(run_server(
+        host=host,
+        port=port,
+        settings=settings,
+        static_dir=static_dir,
+    ))
+
+
 if __name__ == "__main__":
     main()
