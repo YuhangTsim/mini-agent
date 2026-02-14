@@ -52,3 +52,12 @@ uv.lock
 node_modules/
 .pnp
 .pnp.js
+
+# Claude Code
+.claude/
+claude/
+
+# Bare repo and worktrees
+minimal-agent.git/
+main/
+feature-example/

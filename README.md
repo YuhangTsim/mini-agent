@@ -6,7 +6,10 @@ A modular, controllable AI agent framework in Python. Provider-agnostic (startin
 
 ```bash
 # Install with uv
-uv venv && uv pip install -e ".[dev]"
+cd main/
+uv venv && source .venv/bin/activate
+uv pip install -e ".[dev]"          # core + dev tools
+uv pip install -e ".[dev,api]"      # with HTTP API support
 
 # Set your API key
 export OPENAI_API_KEY="sk-..."
@@ -14,6 +17,21 @@ export OPENAI_API_KEY="sk-..."
 # Run the interactive REPL
 mini-agent
 ```
+
+### Run the Web UI
+
+```bash
+# Terminal 1: Start the backend API server
+cd main/
+uv run mini-agent serve --port 8080
+
+# Terminal 2: Start the frontend dev server
+cd ui/
+npm install && npm run dev
+# Opens http://localhost:5173
+```
+
+See [ui/README.md](ui/README.md) for full web UI documentation.
 
 ## Features
 
@@ -187,9 +205,10 @@ This repository uses a **bare repository with worktrees** setup for working on m
 ```
 minimal-agent/
 ├── minimal-agent.git/     # Bare repository (central storage)
-├── main/                  # Worktree for main branch
+├── main/                  # Worktree for main branch (Python backend + CLI)
+├── ui/                    # Web UI (React + TypeScript + Vite)
 ├── feature-example/       # Worktree for feature development
-└── ...                    # Your original working directory
+└── ...                    # Additional worktrees as needed
 ```
 
 ### Worktrees
