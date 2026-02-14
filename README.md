@@ -16,6 +16,10 @@ export OPENAI_API_KEY="sk-..."
 
 # Run the interactive REPL
 mini-agent
+
+# Or start the HTTP API server (requires API extras)
+uv pip install -e ".[dev,api]"
+mini-agent serve --port 8080
 ```
 
 ### Run the Web UI
@@ -42,6 +46,7 @@ See [ui/README.md](ui/README.md) for full web UI documentation.
 - **Skills system** — Markdown skill files with YAML frontmatter, mode-scoped, auto-discovered
 - **Configurable approval** — per-tool approval policies (auto_approve, always_ask, ask_once, deny)
 - **Streaming responses** — real-time token streaming with rich terminal formatting
+- **HTTP API + Web UI** — FastAPI server with SSE streaming and React frontend
 - **JSON export** — export tasks with full conversation history and token usage
 - **Provider-agnostic** — abstract provider interface, easy to add new LLM backends
 
@@ -75,7 +80,12 @@ src/mini_agent/
 │   └── export.py        # JSON export
 ├── api/                 # Frontend-agnostic API layer
 │   ├── service.py       # AgentService (business logic)
-│   └── events.py        # Event bus for real-time updates
+│   ├── events.py        # Event bus for real-time updates
+│   └── http/            # FastAPI HTTP server
+│       ├── server.py    # App factory + uvicorn runner
+│       ├── routes/      # REST + SSE endpoints
+│       ├── schemas.py   # Pydantic request/response models
+│       └── middleware.py # CORS configuration
 └── config/
     └── settings.py      # TOML config loading
 ```
@@ -92,6 +102,54 @@ src/mini_agent/
 | `/history [task_id]` | List recent tasks or show a task's conversation |
 | `/export <task_id>` | Export task to JSON file |
 | `/quit` | Exit |
+
+## HTTP API Server
+
+The `serve` command starts a FastAPI server exposing the agent over HTTP with Server-Sent Events for streaming.
+
+```bash
+# Install API dependencies
+uv pip install -e ".[api]"
+
+# Start the server
+mini-agent serve --port 8080
+```
+
+**API endpoints:**
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/health` | Health check |
+| `POST` | `/api/tasks` | Create a new task |
+| `GET` | `/api/tasks` | List tasks |
+| `GET` | `/api/tasks/{id}` | Get task details |
+| `DELETE` | `/api/tasks/{id}` | Cancel a task |
+| `POST` | `/api/tasks/{id}/messages` | Send a message |
+| `GET` | `/api/tasks/{id}/messages` | Get message history |
+| `GET` | `/api/tasks/{id}/stream` | SSE stream for real-time events |
+| `POST` | `/api/tasks/{id}/mode` | Switch task mode |
+| `GET` | `/api/modes` | List available modes |
+| `POST` | `/api/approvals/{id}` | Respond to tool approval |
+| `POST` | `/api/inputs/{id}` | Respond to user input request |
+
+### Web UI
+
+A React frontend lives in `ui/`. For development, run the API server and Vite dev server separately:
+
+```bash
+# Terminal 1: API server
+mini-agent serve --port 8080
+
+# Terminal 2: Vite dev server (proxies /api to :8080)
+cd ui && npm install && npm run dev
+```
+
+For production, build the UI and serve it from the API server:
+
+```bash
+cd ui && npm run build
+mini-agent serve --port 8080 --static-dir ../ui/dist
+```
 
 ## Modes
 
