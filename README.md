@@ -178,6 +178,54 @@ modes: [code, debug]
 ...
 ```
 
+## Repository Setup
+
+This repository uses a **bare repository with worktrees** setup for working on multiple features simultaneously.
+
+### Structure
+
+```
+minimal-agent/
+├── minimal-agent.git/     # Bare repository (central storage)
+├── main/                  # Worktree for main branch
+├── feature-example/       # Worktree for feature development
+└── ...                    # Your original working directory
+```
+
+### Worktrees
+
+| Path | Branch | Purpose |
+|------|--------|---------|
+| `minimal-agent.git/` | (bare) | Central repository - do not edit directly |
+| `main/` | `main` | Stable/main development |
+| `feature-example/` | `feature-example` | Example feature branch |
+
+### Common Commands
+
+```bash
+# Navigate to bare repo
+cd minimal-agent.git
+
+# List all worktrees
+git worktree list
+
+# Create a new worktree for a feature
+git worktree add -b feature-name ../feature-name main
+
+# Remove a worktree when done
+git worktree remove ../feature-name
+
+# Prune stale worktree references
+git worktree prune
+```
+
+### Benefits
+
+- Work on multiple branches simultaneously without switching
+- No stashing or context switching needed
+- Each feature gets its own isolated directory
+- All worktrees share the same git history
+
 ## License
 
 (To be determined)
