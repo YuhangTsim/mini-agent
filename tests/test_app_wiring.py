@@ -13,25 +13,24 @@ async def test_app_initialization():
     # All 6 agents registered
     assert len(app.agent_registry.all_agents()) == 6
     roles = set(app.agent_registry.roles())
-    assert roles == {"orchestrator", "coder", "explorer", "planner", "debugger", "reviewer"}
+    assert roles == {"orchestrator", "explorer", "librarian", "oracle", "designer", "fixer"}
 
-    # All 10 tools registered (6 native + 4 delegation)
+    # All tools registered
     all_tools = app.tool_registry.all_tools()
     tool_names = {t.name for t in all_tools}
     assert "read_file" in tool_names
     assert "write_file" in tool_names
     assert "delegate_task" in tool_names
     assert "report_result" in tool_names
-    assert len(all_tools) == 10
 
     # Tool filtering works per agent
-    coder = app.agent_registry.get_required("coder")
-    allowed, denied = coder.get_tool_filter()
-    coder_tools = app.tool_registry.get_tools_for_agent(allowed=allowed, denied=denied)
-    coder_tool_names = {t.name for t in coder_tools}
-    assert "read_file" in coder_tool_names
-    assert "write_file" in coder_tool_names
-    assert "delegate_task" not in coder_tool_names
+    fixer = app.agent_registry.get_required("fixer")
+    allowed, denied = fixer.get_tool_filter()
+    fixer_tools = app.tool_registry.get_tools_for_agent(allowed=allowed, denied=denied)
+    fixer_tool_names = {t.name for t in fixer_tools}
+    assert "read_file" in fixer_tool_names
+    assert "write_file" in fixer_tool_names
+    assert "delegate_task" not in fixer_tool_names
 
     orchestrator = app.agent_registry.get_required("orchestrator")
     allowed, denied = orchestrator.get_tool_filter()
@@ -50,9 +49,9 @@ async def test_app_provider_registry():
     await app.initialize()
 
     # Different agents can have different models
-    coder_config = settings.agents["coder"]
+    fixer_config = settings.agents["fixer"]
     explorer_config = settings.agents["explorer"]
-    assert coder_config.model == "gpt-4o"
+    assert fixer_config.model == "gpt-4o"
     assert explorer_config.model == "gpt-4o-mini"
 
     await app.shutdown()

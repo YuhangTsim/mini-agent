@@ -40,7 +40,7 @@ class ProviderConfig:
         return os.environ.get(env_var) or None
 
 
-# Default agent configs matching the plan's pantheon
+# Default agent configs matching the actual agent classes
 DEFAULT_AGENTS: dict[str, dict[str, Any]] = {
     "orchestrator": {
         "role": "orchestrator",
@@ -52,42 +52,33 @@ DEFAULT_AGENTS: dict[str, dict[str, Any]] = {
             "check_background_task",
             "report_result",
         ],
-        "can_delegate_to": ["coder", "explorer", "planner", "debugger", "reviewer"],
-    },
-    "coder": {
-        "role": "coder",
-        "model": "gpt-4o",
-        "allowed_tools": [
-            "read_file",
-            "write_file",
-            "edit_file",
-            "search_files",
-            "list_files",
-            "execute_command",
-            "report_result",
-        ],
+        "can_delegate_to": ["explorer", "librarian", "oracle", "designer", "fixer"],
     },
     "explorer": {
         "role": "explorer",
         "model": "gpt-4o-mini",
         "allowed_tools": ["read_file", "search_files", "list_files", "report_result"],
     },
-    "planner": {
-        "role": "planner",
+    "librarian": {
+        "role": "librarian",
+        "model": "gpt-4o",
+        "allowed_tools": ["read_file", "search_files", "list_files", "report_result"],
+    },
+    "oracle": {
+        "role": "oracle",
         "model": "gpt-4o",
         "temperature": 0.2,
         "allowed_tools": [
             "read_file",
             "search_files",
             "list_files",
-            "write_file",
             "delegate_task",
             "report_result",
         ],
         "can_delegate_to": ["explorer"],
     },
-    "debugger": {
-        "role": "debugger",
+    "designer": {
+        "role": "designer",
         "model": "gpt-4o",
         "allowed_tools": [
             "read_file",
@@ -96,15 +87,21 @@ DEFAULT_AGENTS: dict[str, dict[str, Any]] = {
             "search_files",
             "list_files",
             "execute_command",
-            "delegate_task",
             "report_result",
         ],
-        "can_delegate_to": ["explorer"],
     },
-    "reviewer": {
-        "role": "reviewer",
+    "fixer": {
+        "role": "fixer",
         "model": "gpt-4o",
-        "allowed_tools": ["read_file", "search_files", "list_files", "report_result"],
+        "allowed_tools": [
+            "read_file",
+            "write_file",
+            "edit_file",
+            "search_files",
+            "list_files",
+            "execute_command",
+            "report_result",
+        ],
     },
 }
 
