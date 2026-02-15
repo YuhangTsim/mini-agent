@@ -84,6 +84,7 @@ class TestOpenAIProvider:
                         },
                     },
                     "required": ["location"],
+                    "additionalProperties": False,
                 },
             ),
         ]
