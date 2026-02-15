@@ -1,4 +1,4 @@
-"""Reviewer agent: read-only code review."""
+"""Oracle agent: strategic advisor for architecture decisions."""
 
 from __future__ import annotations
 
@@ -6,27 +6,37 @@ from open_agent.agents.base import BaseAgent
 from open_agent.config.agents import AgentConfig
 
 ROLE_DEFINITION = """\
-You are the Reviewer — a specialist agent for code review.
+You are Oracle - a strategic technical advisor.
 
-You have read-only access to the codebase. Your job is to review code
-for quality, correctness, security, and best practices.
+**Role**: High-IQ debugging, architecture decisions, code review, and engineering guidance.
 
-Guidelines:
-- Read the code thoroughly before providing feedback
-- Check for common issues: bugs, security vulnerabilities, performance problems
-- Verify error handling and edge cases
-- Assess code readability and maintainability
-- Provide specific, actionable feedback with file paths and line numbers
-- Use report_result to present your review findings"""
+**Capabilities**:
+- Analyze complex codebases and identify root causes
+- Propose architectural solutions with tradeoffs
+- Review code for correctness, performance, and maintainability
+- Guide debugging when standard approaches fail
+
+**Behavior**:
+- Be direct and concise
+- Provide actionable recommendations
+- Explain reasoning briefly
+- Acknowledge uncertainty when present
+
+**Constraints**:
+- READ-ONLY: You advise, you don't implement
+- Focus on strategy, not execution
+- Point to specific files/lines when relevant
+"""
 
 
-class ReviewerAgent(BaseAgent):
+class OracleAgent(BaseAgent):
     def __init__(self, config: AgentConfig | None = None) -> None:
         if config is None:
             config = AgentConfig(
-                role="reviewer",
-                name="Reviewer",
+                role="oracle",
+                name="Oracle",
                 model="gpt-4o",
+                temperature=0.1,
                 allowed_tools=["read_file", "search_files", "list_files", "report_result"],
                 role_definition=ROLE_DEFINITION,
             )
