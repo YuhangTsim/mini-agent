@@ -51,9 +51,14 @@ export function ChatPanel() {
   if (!currentTaskId) {
     return (
       <div className="flex-1 flex items-center justify-center text-muted-foreground">
-        <div className="text-center space-y-2">
-          <p className="text-lg">No task selected</p>
-          <p className="text-sm">Create a new task to start chatting</p>
+        <div className="text-center space-y-4">
+          <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto">
+            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/><path d="M9 20v2"/><path d="M15 20v2"/></svg>
+          </div>
+          <div>
+            <p className="text-lg font-medium text-foreground">No task selected</p>
+            <p className="text-sm mt-1">Create a new task to start chatting</p>
+          </div>
         </div>
       </div>
     )

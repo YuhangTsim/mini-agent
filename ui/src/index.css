@@ -2,25 +2,34 @@
 @plugin "@tailwindcss/typography";
 
 @theme {
-  --color-background: hsl(0 0% 100%);
-  --color-foreground: hsl(222.2 84% 4.9%);
-  --color-card: hsl(0 0% 100%);
-  --color-card-foreground: hsl(222.2 84% 4.9%);
-  --color-popover: hsl(0 0% 100%);
-  --color-popover-foreground: hsl(222.2 84% 4.9%);
-  --color-primary: hsl(221.2 83.2% 53.3%);
-  --color-primary-foreground: hsl(210 40% 98%);
-  --color-secondary: hsl(210 40% 96.1%);
-  --color-secondary-foreground: hsl(222.2 47.4% 11.2%);
-  --color-muted: hsl(210 40% 96.1%);
-  --color-muted-foreground: hsl(215.4 16.3% 46.9%);
-  --color-accent: hsl(210 40% 96.1%);
-  --color-accent-foreground: hsl(222.2 47.4% 11.2%);
-  --color-destructive: hsl(0 84.2% 60.2%);
-  --color-destructive-foreground: hsl(210 40% 98%);
-  --color-border: hsl(214.3 31.8% 91.4%);
-  --color-input: hsl(214.3 31.8% 91.4%);
-  --color-ring: hsl(221.2 83.2% 53.3%);
+  --color-background: hsl(222 47% 11%);
+  --color-foreground: hsl(213 31% 91%);
+  
+  --color-card: hsl(222 47% 13%);
+  --color-card-foreground: hsl(213 31% 91%);
+  
+  --color-popover: hsl(222 47% 11%);
+  --color-popover-foreground: hsl(213 31% 91%);
+  
+  --color-primary: hsl(210 100% 66%);
+  --color-primary-foreground: hsl(222 47% 11%);
+  
+  --color-secondary: hsl(217 33% 18%);
+  --color-secondary-foreground: hsl(213 31% 91%);
+  
+  --color-muted: hsl(217 33% 18%);
+  --color-muted-foreground: hsl(215 20% 65%);
+  
+  --color-accent: hsl(217 33% 18%);
+  --color-accent-foreground: hsl(213 31% 91%);
+  
+  --color-destructive: hsl(0 63% 31%);
+  --color-destructive-foreground: hsl(213 31% 91%);
+  
+  --color-border: hsl(217 33% 18%);
+  --color-input: hsl(217 33% 18%);
+  --color-ring: hsl(210 100% 66%);
+  
   --radius: 0.5rem;
 }
 
@@ -31,5 +40,97 @@
   body {
     @apply bg-background text-foreground;
     margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   }
+}
+
+/* Custom scrollbar for dark theme */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: hsl(222 47% 11%);
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(217 33% 25%);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(217 33% 30%);
+}
+
+/* Animations */
+@keyframes slide-in-from-bottom-1 {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slide-in-from-bottom-2 {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes zoom-in-95 {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-in {
+  animation-duration: 200ms;
+  animation-fill-mode: both;
+}
+
+.slide-in-from-bottom-1 {
+  animation-name: slide-in-from-bottom-1;
+}
+
+.slide-in-from-bottom-2 {
+  animation-name: slide-in-from-bottom-2;
+}
+
+.fade-in {
+  animation-name: fade-in;
+}
+
+.zoom-in-95 {
+  animation-name: zoom-in-95;
+}
+
+.duration-200 {
+  animation-duration: 200ms;
+}
+
+.duration-300 {
+  animation-duration: 300ms;
 }
