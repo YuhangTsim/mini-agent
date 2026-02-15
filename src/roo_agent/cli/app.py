@@ -344,7 +344,7 @@ async def run_repl(settings: Settings) -> None:
     model_info = provider.get_model_info()
     console.print(
         Panel(
-            f"[bold]mini-agent[/bold] v0.1.0\n"
+            f"[bold]roo-agent[/bold] v2.0.0 | Mode-based agent framework\n"
             f"Provider: {model_info.provider} / {model_info.model_id}\n"
             f"Mode: {settings.default_mode}\n"
             f"Tools: {len(registry.all_tools())} registered",
@@ -498,7 +498,7 @@ async def run_repl(settings: Settings) -> None:
 @click.option("--config", "-c", "config_path", default=None, help="Path to config file")
 @click.pass_context
 def main(ctx, config_path):
-    """Mini-Agent: A modular AI agent framework."""
+    """Roo-Agent: A mode-based AI agent framework following Roo Code philosophy."""
     if ctx.invoked_subcommand is None:
         settings = Settings.load(config_path)
         asyncio.run(run_repl(settings))
@@ -563,7 +563,7 @@ def serve(host, port, static_dir, config_path):
     if static_dir:
         static_dir = os.path.abspath(static_dir)
 
-    click.echo(f"Starting Mini-Agent HTTP API server on {host}:{port}")
+    click.echo(f"Starting Roo-Agent HTTP API server on {host}:{port}")
     if static_dir:
         click.echo(f"Serving static files from: {static_dir}")
     click.echo("Press Ctrl+C to stop")

@@ -9,11 +9,11 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from mini_agent.core.agent import Agent
-from mini_agent.persistence.models import Task, TaskStatus, TodoItem
-from mini_agent.persistence.store import Store
-from mini_agent.tools.base import ToolContext
-from mini_agent.tools.native.todo import UpdateTodoListTool
+from roo_agent.core.agent import Agent
+from roo_agent.persistence.models import Task, TaskStatus, TodoItem
+from roo_agent.persistence.store import Store
+from roo_agent.tools.base import ToolContext
+from roo_agent.tools.native.todo import UpdateTodoListTool
 
 
 # ---------------------------------------------------------------------------

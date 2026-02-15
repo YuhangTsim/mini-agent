@@ -1,12 +1,11 @@
 # Mini-Agent
 
-A modular, controllable AI agent framework in Python. Provider-agnostic (starting with OpenAI), with task hierarchies, full persistence, and a clean API layer decoupled from any frontend.
+A dual-framework AI agent platform featuring **roo-agent** (mode-based, Roo Code philosophy) and **open-agent** (multi-agent event-driven). Provider-agnostic with task hierarchies, full persistence, and a clean API layer.
 
 ## Quick Start
 
 ```bash
 # Install with uv
-cd main/
 uv venv && source .venv/bin/activate
 uv pip install -e ".[dev]"          # core + dev tools
 uv pip install -e ".[dev,api]"      # with HTTP API support
@@ -14,8 +13,11 @@ uv pip install -e ".[dev,api]"      # with HTTP API support
 # Set your API key
 export OPENAI_API_KEY="sk-..."
 
-# Run the interactive REPL
+# Run the interactive REPL (defaults to roo-agent)
 mini-agent
+
+# Or use open-agent (multi-agent)
+mini-agent --open
 
 # Or start the HTTP API server (requires API extras)
 uv pip install -e ".[dev,api]"
@@ -37,8 +39,19 @@ npm install && npm run dev
 
 See [ui/README.md](ui/README.md) for full web UI documentation.
 
+## Dual Framework Architecture
+
+Mini-Agent provides two distinct agent paradigms:
+
+### Roo-Agent (Default)
+**Mode-based single agent** following Roo Code philosophy. One powerful agent with switchable modes (code, plan, ask, debug, orchestrator). Best for focused tasks with Roo-style code editing and diff viewing.
+
+### Open-Agent
+**Multi-agent event-driven system** with specialized agents coordinated via event bus. Best for complex workflows requiring multiple specialist agents working together.
+
 ## Features
 
+- **Dual framework** — roo-agent (mode-based) + open-agent (multi-agent) in one package
 - **Multi-mode system** — code, plan, ask, debug, orchestrator modes with per-mode tool access
 - **11 built-in tools** — file ops, search, command execution, todo lists, user interaction, task management
 - **Task hierarchy** — parent/child tasks with independent conversations and result propagation
@@ -53,44 +66,55 @@ See [ui/README.md](ui/README.md) for full web UI documentation.
 ## Project Structure
 
 ```
-src/mini_agent/
-├── cli/                 # Interactive CLI (click + rich + prompt_toolkit)
-│   └── app.py           # REPL entry point
-├── core/                # Core engine
-│   ├── agent.py         # Agent loop (LLM → tool → approval → result)
-│   └── mode.py          # Mode definitions & switching
-├── providers/           # LLM provider abstraction
-│   ├── base.py          # Abstract provider interface
-│   ├── openai.py        # OpenAI implementation
-│   └── registry.py      # Provider factory
-├── tools/               # Tool system
-│   ├── base.py          # BaseTool, ToolRegistry, approval system
-│   ├── native/          # Built-in tools (file_ops, search, command, todo, interaction, skill)
-│   └── agent/           # Agent tools (new_task, switch_mode, attempt_completion)
-├── skills/              # Skills system
-│   ├── manager.py       # Discovery, loading, mode filtering
-│   ├── loader.py        # Markdown/frontmatter parser
-│   └── builtin/         # Built-in skill files
-├── prompts/             # Sectional prompt system
-│   ├── builder.py       # Dynamic prompt composer
-│   └── sections/        # role, tools, skills, rules, system_info
-├── persistence/         # SQLite persistence
-│   ├── models.py        # Task, Message, ToolCall, TokenUsage
-│   ├── store.py         # Async SQLite CRUD
-│   └── export.py        # JSON export
-├── api/                 # Frontend-agnostic API layer
-│   ├── service.py       # AgentService (business logic)
-│   ├── events.py        # Event bus for real-time updates
-│   └── http/            # FastAPI HTTP server
-│       ├── server.py    # App factory + uvicorn runner
-│       ├── routes/      # REST + SSE endpoints
-│       ├── schemas.py   # Pydantic request/response models
-│       └── middleware.py # CORS configuration
-└── config/
-    └── settings.py      # TOML config loading
+src/
+├── roo_agent/           # Mode-based agent framework (formerly mini_agent)
+│   ├── cli/             # Interactive CLI (click + rich + prompt_toolkit)
+│   ├── core/            # Core engine (agent.py, mode.py)
+│   ├── providers/       # LLM provider abstraction
+│   ├── tools/           # Tool system (native + agent tools)
+│   ├── skills/          # Skills system
+│   ├── prompts/         # Sectional prompt system
+│   ├── persistence/     # SQLite persistence
+│   ├── api/             # FastAPI HTTP server
+│   └── config/          # TOML config loading
+├── open_agent/          # Multi-agent event-driven framework
+│   ├── cli/             # Open-agent CLI
+│   ├── core/            # Session, orchestration
+│   ├── agents/          # Specialized agents
+│   ├── bus/             # Event bus system
+│   ├── providers/       # LLM providers
+│   ├── tools/           # Tool registry
+│   └── persistence/     # Storage layer
+└── minimal_agent/       # Unified entry point
+    ├── __init__.py      # Package exports
+    └── cli.py           # Main CLI (defaults to roo-agent)
 ```
 
-## CLI Commands
+## CLI Usage
+
+### Main Entry Point
+
+```bash
+# Default: roo-agent (mode-based)
+mini-agent
+
+# Use open-agent (multi-agent event-driven)
+mini-agent --open
+
+# Direct framework commands (bypass main CLI)
+roo-agent                    # Mode-based agent
+open-agent                   # Multi-agent system
+```
+
+### CLI Options
+
+| Option | Description |
+|--------|-------------|
+| `--open` | Use open-agent instead of roo-agent (default) |
+| `--config PATH` | Path to config file |
+| `--mode MODE` | Set agent mode (roo-agent only, default: coder) |
+
+### Interactive Commands (within REPL)
 
 | Command | Description |
 |---------|-------------|
@@ -160,6 +184,20 @@ mini-agent serve --port 8080 --static-dir ../ui/dist
 | `ask` | read | Q&A without modifications |
 | `debug` | read, edit, command | Troubleshooting and bug fixing |
 | `orchestrator` | agent tools only | Task delegation |
+
+## Choosing a Framework
+
+| | Roo-Agent (Default) | Open-Agent |
+|---|---------------------|------------|
+| **Paradigm** | Single agent with switchable modes | Multiple specialized agents |
+| **Architecture** | Mode-based (Roo Code style) | Event-driven with event bus |
+| **Best for** | Focused tasks, code editing | Complex multi-domain workflows |
+| **Strengths** | Deep tool integration, Roo-style diffs | Hierarchical delegation, background tasks |
+| **CLI** | `mini-agent` | `mini-agent --open` |
+
+**Use roo-agent when:** You want a single agent that deeply understands context and can switch between coding, planning, debugging, and asking modes with Roo Code-style interactions.
+
+**Use open-agent when:** You have complex tasks requiring multiple specialists (coder, researcher, reviewer) working together with coordinated event-driven communication.
 
 ## Configuration
 
