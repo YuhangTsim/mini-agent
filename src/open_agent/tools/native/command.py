@@ -27,7 +27,7 @@ class ExecuteCommandTool(BaseTool):
                 "description": "Timeout in seconds. Default: 120.",
             },
         },
-        "required": ["command"],
+        "required": ["command", "timeout"],
         "additionalProperties": False,
     }
 

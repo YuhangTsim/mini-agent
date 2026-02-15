@@ -20,30 +20,39 @@ def test_settings():
         settings = Settings()
         settings.data_dir = tmpdir
         settings.working_directory = tmpdir
+        
+        # Configure for OpenRouter if OPENROUTER_API_KEY is set
+        openrouter_key = os.environ.get("OPENROUTER_API_KEY")
+        if openrouter_key:
+            settings.provider.base_url = "https://openrouter.ai/api/v1"
+            settings.provider.api_key = openrouter_key
+        
         yield settings
 
 
 @pytest.fixture
 async def client(test_settings):
     """Create a test client with initialized service."""
-    from open_agent.api.http.server import _service
-    global _service
+    import open_agent.api.http.server as server_module
     
     # Reset global service
-    _service = None
+    server_module._service = None
     
     # Create and initialize service with test settings
     from open_agent.api.service import AgentService
-    _service = AgentService(test_settings)
-    await _service.initialize()
+    service = AgentService(test_settings)
+    await service.initialize()
+    
+    # Set the global service
+    server_module._service = service
     
     # Use FastAPI TestClient
     with TestClient(app) as test_client:
         yield test_client
     
     # Cleanup
-    await _service.shutdown()
-    _service = None
+    await service.shutdown()
+    server_module._service = None
 
 
 class TestHealthEndpoint:
@@ -135,6 +144,9 @@ class TestE2EWithLLM:
             "message": "What is 2+2? Answer with just the number.",
             "agent_role": "explorer",
         })
+        
+        if response.status_code != 200:
+            print(f"Error response: {response.status_code} - {response.text}")
         
         assert response.status_code == 200
         data = response.json()

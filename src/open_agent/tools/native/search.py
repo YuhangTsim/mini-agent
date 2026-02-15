@@ -33,7 +33,7 @@ class SearchFilesTool(BaseTool):
                 "description": "File glob pattern to filter (e.g., '*.py'). Default: all files.",
             },
         },
-        "required": ["path", "pattern"],
+        "required": ["path", "pattern", "glob"],
         "additionalProperties": False,
     }
 
@@ -115,7 +115,7 @@ class ListFilesTool(BaseTool):
                 "description": "Whether to list recursively. Default: false.",
             },
         },
-        "required": ["path"],
+        "required": ["path", "recursive"],
         "additionalProperties": False,
     }
 

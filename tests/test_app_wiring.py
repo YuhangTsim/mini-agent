@@ -59,15 +59,21 @@ async def test_app_provider_registry():
 
 async def test_persistence_integration():
     """Test that persistence store is properly wired."""
-    settings = Settings()
-    app = OpenAgentApp(settings)
-    await app.initialize()
+    import tempfile
+    
+    # Use a temp directory for isolation
+    with tempfile.TemporaryDirectory() as tmpdir:
+        settings = Settings()
+        settings.data_dir = tmpdir
+        
+        app = OpenAgentApp(settings)
+        await app.initialize()
 
-    # Store should be initialized
-    assert app.store._db is not None
+        # Store should be initialized
+        assert app.store._db is not None
 
-    # Can list sessions (should be empty)
-    sessions = await app.store.list_sessions()
-    assert sessions == []
+        # Can list sessions (should be empty for fresh db)
+        sessions = await app.store.list_sessions()
+        assert sessions == []
 
-    await app.shutdown()
+        await app.shutdown()
