@@ -98,7 +98,7 @@ class TestUpdateTodoListTool:
 
     @pytest.fixture
     def context(self):
-        return ToolContext(task_id="t1", working_directory="/tmp", mode="code")
+        return ToolContext(session_id="t1", working_directory="/tmp")
 
     async def test_basic_execution(self, tool, context):
         params = {
