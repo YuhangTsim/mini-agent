@@ -23,7 +23,7 @@ Open-Agent replaces single-mode agents with multiple specialized agents, each ru
 ```bash
 # Clone the repository
 git clone <repo-url>
-cd minimal-agent/main
+cd mini-agent
 
 # Create virtual environment and install
 uv venv && source .venv/bin/activate
@@ -226,11 +226,8 @@ uv venv && source .venv/bin/activate
 uv pip install -e ".[dev,api]"
 
 # Lint & format
-ruff check . --fix
-ruff format .
-
-# Type checking
-mypy src/open_agent
+ruff check src/open_agent tests --fix
+ruff format src/open_agent tests
 
 # Run tests
 pytest -x
@@ -240,8 +237,10 @@ pytest -x
 
 ```
 .
-├── src/open_agent/     # Source code
-├── tests/              # Test suite
+├── src/
+│   ├── open_agent/     # Active framework (installed)
+│   └── mini_agent/     # Legacy (not installed)
+├── tests/              # Test suite (open_agent)
 ├── pyproject.toml      # Dependencies & config
 └── .open-agent/        # Local config & data
 ```
