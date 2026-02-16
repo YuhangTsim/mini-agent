@@ -8,7 +8,7 @@ from typing import Any, AsyncIterator
 import tiktoken
 from openai import AsyncOpenAI
 
-from open_agent.providers.base import (
+from .base import (
     BaseProvider,
     ModelInfo,
     StreamEvent,

@@ -48,6 +48,28 @@ class ModelInfo:
     supports_tools: bool = True
 
 
+# Provider model catalog - populated by registry
+PROVIDER_MODELS: dict[str, list[ModelInfo]] = {
+    "openai": [
+        ModelInfo("openai", "gpt-4o", 128000, 4096, True, True),
+        ModelInfo("openai", "gpt-4o-mini", 128000, 4096, True, True),
+        ModelInfo("openai", "gpt-4-turbo", 128000, 4096, True, True),
+        ModelInfo("openai", "gpt-3.5-turbo", 16385, 4096, False, True),
+    ],
+    "openrouter": [
+        ModelInfo("openrouter", "anthropic/claude-sonnet-4-20250514", 200000, 8192, True, True),
+        ModelInfo("openrouter", "anthropic/claude-opus-4", 200000, 8192, True, True),
+        ModelInfo("openrouter", "openai/gpt-4o", 128000, 4096, True, True),
+        ModelInfo("openrouter", "google/gemini-2.5-flash-preview", 1000000, 8192, True, True),
+    ],
+    "ollama": [
+        ModelInfo("ollama", "llama3.2", 128000, 4096, False, True),
+        ModelInfo("ollama", "qwen2.5", 128000, 4096, False, True),
+        ModelInfo("ollama", "mistral", 128000, 4096, False, True),
+    ],
+}
+
+
 class BaseProvider(ABC):
     """Abstract base class for LLM providers."""
 
