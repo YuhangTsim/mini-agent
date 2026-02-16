@@ -1,7 +1,7 @@
 [project]
-name = "open-agent"
-version = "0.1.0"
-description = "Multi-agent AI framework with typed event bus and hierarchical delegation"
+name = "minimal-agent"
+version = "2.0.0"
+description = "Dual-framework AI agent platform (roo-agent + open-agent)"
 requires-python = ">=3.11"
 dependencies = [
     "openai>=1.0",
@@ -30,14 +30,16 @@ dev = [
 ]
 
 [project.scripts]
-open-agent = "open_agent.cli.app:main"
+mini-agent = "minimal_agent.cli:main"
+roo-agent = "roo_agent.cli.app:main"
+open-agent = "open_agent.cli:main"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/open_agent"]
+packages = ["src/roo_agent", "src/open_agent", "src/minimal_agent"]
 
 [tool.ruff]
 target-version = "py311"
