@@ -53,6 +53,7 @@ uv.lock
 node_modules/
 .pnp
 .pnp.js
+ui/.vite/
 
 # Claude Code
 .claude/
