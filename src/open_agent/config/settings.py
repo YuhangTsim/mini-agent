@@ -18,9 +18,10 @@ else:
     except ModuleNotFoundError:
         import tomli as tomllib  # type: ignore[no-redef]
 
-DEFAULT_CONFIG_DIR = ".open-agent"
+# Use unified config with roo-agent
+DEFAULT_CONFIG_DIR = ".mini-agent"
 DEFAULT_CONFIG_FILE = "config.toml"
-GLOBAL_CONFIG_DIR = Path.home() / ".open-agent"
+GLOBAL_CONFIG_DIR = Path.home() / ".mini-agent"
 
 
 @dataclass
@@ -157,7 +158,7 @@ class Settings:
 
     @classmethod
     def _from_dict(cls, data: dict[str, Any]) -> "Settings":
-        # Provider
+        # Provider - try [providers.openai] first (legacy), then [provider] (unified)
         prov_data = data.get("providers", {}).get("openai", data.get("provider", {}))
         provider = ProviderConfig(
             name=prov_data.get("name", "openai"),
@@ -165,17 +166,20 @@ class Settings:
             base_url=prov_data.get("base_url"),
         )
 
-        # Agents
+        # Agents - check [open_agent.agents] first (unified), then [agents] (legacy)
         agents: dict[str, AgentConfig] = {}
-        for role, agent_data in data.get("agents", {}).items():
+        open_agent_section = data.get("open_agent", {})
+        agents_data = open_agent_section.get("agents", data.get("agents", {}))
+        for role, agent_data in agents_data.items():
             agent_data.setdefault("role", role)
             agents[role] = AgentConfig(**agent_data)
 
         # Permissions
         permissions = [PermissionRule(**p) for p in data.get("permissions", [])]
 
-        general = data.get("general", {})
-        background = data.get("background", {})
+        # General settings - check [open_agent] first, then [general] (legacy)
+        general = open_agent_section if open_agent_section else data.get("general", {})
+        background = open_agent_section.get("background", data.get("background", {}))
 
         return cls(
             provider=provider,
