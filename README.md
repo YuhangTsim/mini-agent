@@ -1,6 +1,6 @@
-# Open-Agent
+# Mini-Agent
 
-A dual-framework AI agent platform featuring **roo-agent** (mode-based, Roo Code philosophy) and **open-agent** (multi-agent event-driven). Provider-agnostic with task hierarchies, full persistence, and a clean API layer.
+A dual-framework AI agent platform featuring **roo-agent** (mode-based, Roo Code philosophy) and **open-agent** (multi-agent event-driven). Both agents share a unified configuration and can be launched from a single CLI entry point.
 
 ## Quick Start
 
@@ -10,111 +10,147 @@ uv venv && source .venv/bin/activate
 uv pip install -e ".[dev]"          # core + dev tools
 uv pip install -e ".[dev,api]"      # with HTTP API support
 
-# Set your API key
+# Interactive configuration wizard (first time setup)
+mini-agent --configure
+
+# Or run directly - will prompt for configuration if not set up
 export OPENAI_API_KEY="sk-..."
+mini-agent                          # Defaults to roo-agent
 
-# Run the interactive REPL (defaults to roo-agent)
-mini-agent
-
-# Or use open-agent (multi-agent)
+# Run open-agent (multi-agent)
 mini-agent --open
-
-# Or start the HTTP API server (requires API extras)
-uv pip install -e ".[dev,api]"
-mini-agent serve --port 8080
 ```
 
-### Run the Web UI
+## First-Time Configuration
+
+The interactive wizard configures both agents at once:
 
 ```bash
-# Terminal 1: Start the backend API server
-cd main/
-uv run mini-agent serve --port 8080
-
-# Terminal 2: Start the frontend dev server
-cd ui/
-npm install && npm run dev
-# Opens http://localhost:5173
+mini-agent --configure
 ```
 
-See [ui/README.md](ui/README.md) for full web UI documentation.
+This creates `~/.mini-agent/config.toml` with:
+- **Provider settings** (OpenAI, OpenRouter, Ollama, or OpenAI-compatible)
+- **Model selection** with presets for each provider
+- **API key** (saved to config or read from environment variable)
+- **Open-agent settings** (default agents, delegation depth, etc.)
 
-## Dual Framework Architecture
+### Supported Providers
 
-Mini-Agent provides two distinct agent paradigms:
+| Provider | Description | Environment Variable |
+|----------|-------------|---------------------|
+| **OpenAI** | GPT-4o, GPT-4o-mini, GPT-3.5 | `OPENAI_API_KEY` |
+| **OpenRouter** | Claude, GPT-4, Gemini, and more | `OPENROUTER_API_KEY` |
+| **Ollama** | Local models (Llama, Mistral, etc.) | None (local) |
+| **OpenAI-Compatible** | Together, vLLM, custom endpoints | Varies |
 
-### Roo-Agent (Default)
-**Mode-based single agent** following Roo Code philosophy. One powerful agent with switchable modes (code, plan, ask, debug, orchestrator). Best for focused tasks with Roo-style code editing and diff viewing.
+### Manual Configuration
 
-### Open-Agent
-**Multi-agent event-driven system** with specialized agents coordinated via event bus. Best for complex workflows requiring multiple specialist agents working together.
+Create `~/.mini-agent/config.toml`:
 
-## Features
+```toml
+# Shared provider configuration
+[provider]
+name = "openai"                              # or "openrouter", "ollama", "custom"
+model = "gpt-4o"
+base_url = "https://api.openai.com/v1"       # Optional, for custom endpoints
+# api_key = "sk-..."                         # Optional, or use env var
 
-- **Dual framework** — roo-agent (mode-based) + open-agent (multi-agent) in one package
-- **Multi-mode system** — code, plan, ask, debug, orchestrator modes with per-mode tool access
-- **11 built-in tools** — file ops, search, command execution, todo lists, user interaction, task management
-- **Task hierarchy** — parent/child tasks with independent conversations and result propagation
-- **Full persistence** — SQLite-backed storage for tasks, messages, and tool call audit logs
-- **Skills system** — Markdown skill files with YAML frontmatter, mode-scoped, auto-discovered
-- **Configurable approval** — per-tool approval policies (auto_approve, always_ask, ask_once, deny)
-- **Streaming responses** — real-time token streaming with rich terminal formatting
-- **HTTP API + Web UI** — FastAPI server with SSE streaming and React frontend
-- **JSON export** — export tasks with full conversation history and token usage
-- **Provider-agnostic** — abstract provider interface, easy to add new LLM backends
+# Open-agent specific settings
+[open_agent]
+default_agent = "orchestrator"
+max_delegation_depth = 3
 
-## Project Structure
+[open_agent.background]
+max_concurrent = 3
 
-```
-src/
-├── roo_agent/           # Mode-based agent framework (formerly mini_agent)
-│   ├── cli/             # Interactive CLI (click + rich + prompt_toolkit)
-│   ├── core/            # Core engine (agent.py, mode.py)
-│   ├── providers/       # LLM provider abstraction
-│   ├── tools/           # Tool system (native + agent tools)
-│   ├── skills/          # Skills system
-│   ├── prompts/         # Sectional prompt system
-│   ├── persistence/     # SQLite persistence
-│   ├── api/             # FastAPI HTTP server
-│   └── config/          # TOML config loading
-├── open_agent/          # Multi-agent event-driven framework
-│   ├── cli/             # Open-agent CLI
-│   ├── core/            # Session, orchestration
-│   ├── agents/          # Specialized agents
-│   ├── bus/             # Event bus system
-│   ├── providers/       # LLM providers
-│   ├── tools/           # Tool registry
-│   └── persistence/     # Storage layer
-└── minimal_agent/       # Unified entry point
-    ├── __init__.py      # Package exports
-    └── cli.py           # Main CLI (defaults to roo-agent)
+# Agent-specific configurations
+[open_agent.agents.orchestrator]
+model = "gpt-4o"
+temperature = 0.0
+
+[open_agent.agents.explorer]
+model = "gpt-4o-mini"
+
+# Tool approval policies (shared)
+[tool_approval]
+read_file = "auto_approve"
+search_files = "auto_approve"
+write_file = "always_ask"
+execute_command = "always_ask"
 ```
 
 ## CLI Usage
 
-### Main Entry Point
+### Main Entry Point (Unified)
 
 ```bash
-# Default: roo-agent (mode-based)
-mini-agent
+# Interactive configuration wizard
+mini-agent --configure
+mini-agent configure --global      # Global config (~/.mini-agent/)
+mini-agent configure --force       # Reconfigure even if exists
 
-# Use open-agent (multi-agent event-driven)
+# Run roo-agent (default) - mode-based single agent
+mini-agent
+mini-agent --mode coder            # Specific mode: code, plan, ask, debug
+
+# Run open-agent - multi-agent event-driven
 mini-agent --open
 
-# Direct framework commands (bypass main CLI)
-roo-agent                    # Mode-based agent
-open-agent                   # Multi-agent system
+# Use custom config file
+mini-agent --config /path/to/config.toml
+mini-agent --open --config /path/to/config.toml
+
+# Show version
+mini-agent version
 ```
 
-### CLI Options
+### Legacy Direct Commands
 
-| Option | Description |
-|--------|-------------|
-| `--open` | Use open-agent instead of roo-agent (default) |
-| `--config PATH` | Path to config file |
-| `--mode MODE` | Set agent mode (roo-agent only, default: coder) |
+```bash
+# Direct access to each framework
+roo-agent                    # Mode-based agent
+roo-agent configure          # Configure roo-agent specifically
 
-### Interactive Commands (within REPL)
+open-agent                   # Multi-agent system  
+open-agent chat              # Interactive chat
+```
+
+### Interactive Commands (REPL)
+
+**Roo-Agent:**
+| Command | Description |
+|---------|-------------|
+| `/mode [name]` | Switch mode or list modes |
+| `/model [name]` | Switch model or list models |
+| `/tools` | List available tools |
+| `/history [task_id]` | Show task history |
+| `/export <task_id>` | Export task to JSON |
+| `/quit` | Exit |
+
+**Open-Agent:**
+| Command | Description |
+|---------|-------------|
+| `/agents` | List registered agents |
+| `/tools` | List available tools |
+| `/help` | Show help |
+| `exit` or `quit` | Exit |
+
+## Dual Framework Architecture
+
+### Roo-Agent (Default)
+**Mode-based single agent** following Roo Code philosophy. One powerful agent with switchable modes:
+
+- **code** — Code editing, file operations, command execution
+- **plan** — Task planning and architecture design  
+- **ask** — Questions and explanations
+- **debug** — Debugging and troubleshooting
+- **orchestrator** — Task delegation and coordination
+
+Best for focused tasks with Roo-style code editing and diff viewing.
+
+### Open-Agent
+**Multi-agent event-driven system** with specialized agents coordinated via event bus:
 
 | Agent | Purpose | Can Delegate To |
 |-------|---------|-----------------|
@@ -124,6 +160,8 @@ open-agent                   # Multi-agent system
 | **oracle** | Architecture decisions | explorer |
 | **designer** | UI/UX design | — |
 | **fixer** | Implementation & debugging | — |
+
+Best for complex workflows requiring multiple specialists working together.
 
 ## Choosing a Framework
 
@@ -135,94 +173,119 @@ open-agent                   # Multi-agent system
 | **Strengths** | Deep tool integration, Roo-style diffs | Hierarchical delegation, background tasks |
 | **CLI** | `mini-agent` | `mini-agent --open` |
 
-**Use roo-agent when:** You want a single agent that deeply understands context and can switch between coding, planning, debugging, and asking modes with Roo Code-style interactions.
+## Features
 
-**Use open-agent when:** You have complex tasks requiring multiple specialists (coder, researcher, reviewer) working together with coordinated event-driven communication.
+- **Dual framework** — roo-agent (mode-based) + open-agent (multi-agent) in one package
+- **Unified configuration** — Single config file works for both agents
+- **Interactive wizard** — Easy first-time setup with provider selection
+- **Multi-mode system** — code, plan, ask, debug, orchestrator modes with per-mode tool access
+- **11 built-in tools** — file ops, search, command execution, todo lists, user interaction, task management
+- **Task hierarchy** — parent/child tasks with independent conversations and result propagation
+- **Full persistence** — SQLite-backed storage for tasks, messages, and tool call audit logs
+- **Skills system** — Markdown skill files with YAML frontmatter, mode-scoped, auto-discovered
+- **Configurable approval** — per-tool approval policies (auto_approve, always_ask, ask_once, deny)
+- **Streaming responses** — real-time token streaming with rich terminal formatting
+- **HTTP API + Web UI** — FastAPI server with SSE streaming and React frontend
+- **JSON export** — export tasks with full conversation history and token usage
+- **Provider-agnostic** — OpenAI, OpenRouter, Ollama, and any OpenAI-compatible API
 
-## Configuration
+## Project Structure
 
-Create `.open-agent/config.toml`:
+```
+src/
+├── mini_agent/          # Unified entry point
+│   ├── __init__.py      # Package exports
+│   └── cli.py           # Main CLI with config wizard
+├── roo_agent/           # Mode-based agent framework
+│   ├── cli/             # Interactive CLI (click + rich + prompt_toolkit)
+│   │   ├── app.py       # Main REPL
+│   │   └── config_wizard.py  # Configuration wizard
+│   ├── core/            # Core engine (agent.py, mode.py)
+│   ├── providers/       # LLM provider abstraction
+│   ├── tools/           # Tool system (native + agent tools)
+│   ├── skills/          # Skills system
+│   ├── prompts/         # Sectional prompt system
+│   ├── persistence/     # SQLite persistence
+│   ├── api/             # FastAPI HTTP server
+│   └── config/          # TOML config loading
+└── open_agent/          # Multi-agent event-driven framework (worktree)
+    ├── cli/             # Open-agent CLI
+    ├── core/            # Session, orchestration, delegation
+    ├── agents/          # Specialized agents (orchestrator, explorer, etc.)
+    ├── bus/             # Event bus system
+    ├── providers/       # LLM providers
+    ├── tools/           # Tool registry
+    ├── persistence/     # Storage layer
+    └── config/          # Settings (uses .mini-agent/)
 
+~/.mini-agent/           # Global config directory
+└── config.toml          # Unified config for both agents
+
+./.mini-agent/           # Project-local config (optional)
+└── config.toml          # Overrides global config
+```
+
+## Configuration File Reference
+
+### Provider Section
 ```toml
 [provider]
-name = "openai"
-model = "gpt-4o"
-base_url = "https://api.openai.com/v1"  # Optional
+name = "openai"                    # "openai", "openrouter", "ollama", or custom
+model = "gpt-4o"                   # Model identifier
+base_url = "..."                   # Optional: custom API endpoint
+api_key = "sk-..."                 # Optional: or use env var
+max_tokens = 4096                  # Max output tokens
+temperature = 0.0                  # Sampling temperature
+```
 
-[agents.orchestrator]
+### Open-Agent Section
+```toml
+[open_agent]
+default_agent = "orchestrator"     # Default agent role
+max_delegation_depth = 3           # Max delegation nesting
+
+[open_agent.background]
+max_concurrent = 3                 # Max parallel background tasks
+
+[open_agent.agents.orchestrator]   # Per-agent settings
 model = "gpt-4o"
 temperature = 0.0
-
-[agents.explorer]
-model = "gpt-4o-mini"
-
-[[permissions]]
-tool = "execute_command"
-action = "ask"
-
-[[permissions]]
-tool = "write_file"
-pattern = "*.py"
-action = "ask"
+allowed_tools = ["delegate_task", "read_file"]
+can_delegate_to = ["explorer", "fixer"]
 ```
 
-### Providers
-
-Supports any OpenAI-compatible API:
-
-**OpenAI (default)**:
+### Tool Approval Section
 ```toml
-[provider]
-name = "openai"
-model = "gpt-4o"
+[tool_approval]
+read_file = "auto_approve"
+search_files = "auto_approve"
+list_files = "auto_approve"
+write_file = "always_ask"
+edit_file = "always_ask"
+execute_command = "always_ask"
+attempt_completion = "auto_approve"
+"*" = "ask_once"                   # Default policy
 ```
 
-**OpenRouter**:
-```toml
-[provider]
-name = "openrouter"
-model = "anthropic/claude-sonnet-4"
-base_url = "https://openrouter.ai/api/v1"
-```
-
-**Ollama (local)**:
-```toml
-[provider]
-name = "ollama"
-model = "llama3"
-base_url = "http://localhost:11434/v1"
-```
-
-## CLI Usage
+## Web UI
 
 ```bash
-# Start interactive session
-open-agent
+# Terminal 1: Start the backend API server
+mini-agent serve --port 8080
 
-# List available agents
-open-agent agents
-
-# Start with specific agent
-open-agent --agent explorer
-
-# Start API server
-open-agent serve --port 8080
+# Terminal 2: Start the frontend dev server
+cd ui/
+npm install && npm run dev
+# Opens http://localhost:5173
 ```
 
-### Interactive Commands
-
-| Command | Description |
-|---------|-------------|
-| `@agent <name>` | Switch to agent |
-| `/agents` | List available agents |
-| `/history` | Show conversation history |
-| `/quit` | Exit |
+See [ui/README.md](ui/README.md) for full web UI documentation.
 
 ## HTTP API
 
 Start the server:
 ```bash
-open-agent serve --port 8080
+mini-agent serve --port 8080
 ```
 
 ### Endpoints
@@ -287,23 +350,27 @@ uv venv && source .venv/bin/activate
 uv pip install -e ".[dev,api]"
 
 # Lint & format
-ruff check src/open_agent tests --fix
-ruff format src/open_agent tests
+ruff check src --fix
+ruff format src
 
 # Run tests
 pytest -x
 ```
 
-## Project Structure
+## Worktrees
 
-```
-.
-├── src/
-│   ├── open_agent/     # Active framework (installed)
-│   └── mini_agent/     # Legacy (not installed)
-├── tests/              # Test suite (open_agent)
-├── pyproject.toml      # Dependencies & config
-└── .open-agent/        # Local config & data
+This repository uses git worktrees for parallel development:
+
+- **main** — Main development branch (roo-agent + unified CLI)
+- **open-agent** — Multi-agent framework worktree
+- **coexistence-worktree** — Integration testing worktree
+
+```bash
+# List worktrees
+git worktree list
+
+# Add new worktree
+git worktree add ../my-feature-branch feature-branch-name
 ```
 
 ## License
