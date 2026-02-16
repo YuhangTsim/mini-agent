@@ -4,17 +4,17 @@ from __future__ import annotations
 
 import json
 import time
-from dataclasses import dataclass, field
-from typing import Any, AsyncIterator, Callable, Awaitable
+from dataclasses import dataclass
+from typing import Any, Callable, Awaitable
 
 import platform
 
 from ..persistence.models import (
-    Message, MessageRole, Task, TaskStatus, TokenUsage, TodoItem, ToolCall, new_id,
+    Message, MessageRole, Task, TaskStatus, TokenUsage, TodoItem, ToolCall,
 )
 from ..persistence.store import Store
-from ..providers.base import BaseProvider, StreamEvent, StreamEventType, ToolDefinition
-from ..tools.base import ApprovalPolicy, BaseTool, ToolContext, ToolRegistry, ToolResult
+from ..providers.base import BaseProvider, StreamEventType, ToolDefinition
+from ..tools.base import ApprovalPolicy, ToolContext, ToolRegistry, ToolResult
 from ..config.settings import Settings
 from .mode import ModeConfig, get_mode
 

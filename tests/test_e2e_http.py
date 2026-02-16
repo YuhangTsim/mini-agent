@@ -5,11 +5,10 @@ from __future__ import annotations
 import os
 import tempfile
 
-import httpx
 import pytest
 from fastapi.testclient import TestClient
 
-from open_agent.api.http.server import app, get_service, _service
+from open_agent.api.http.server import app
 from open_agent.config import Settings
 
 
@@ -137,7 +136,6 @@ class TestE2EWithLLM:
     
     async def test_full_conversation_flow(self, client):
         """Test full conversation with real LLM."""
-        import os
         
         # Send a message
         response = client.post("/api/send", json={
@@ -152,7 +150,3 @@ class TestE2EWithLLM:
         data = response.json()
         assert "result" in data
         assert "4" in data["result"]
-
-
-# Import os for skipif check
-import os

@@ -10,6 +10,7 @@ from open_agent.tools.base import BaseTool, ToolContext, ToolResult
 
 class ReadFileTool(BaseTool):
     name = "read_file"
+    groups = ["read"]
     description = (
         "Read a file and return its contents with line numbers. "
         "IMPORTANT: This tool reads exactly one file per call. If you need multiple files, "
@@ -57,6 +58,7 @@ class ReadFileTool(BaseTool):
 
 class WriteFileTool(BaseTool):
     name = "write_file"
+    groups = ["edit"]
     description = (
         "Write content to a file. Creates the file if it doesn't exist, overwrites if it does. "
         "You MUST provide the COMPLETE file content.\n\n"
@@ -96,6 +98,7 @@ class WriteFileTool(BaseTool):
 
 class EditFileTool(BaseTool):
     name = "edit_file"
+    groups = ["edit"]
     description = (
         "Make an exact string replacement in a file. The old_string must match exactly "
         "(including whitespace/indentation). Use this for targeted, surgical edits.\n\n"

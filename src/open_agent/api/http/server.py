@@ -11,7 +11,6 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from open_agent.api.service import AgentService
-from open_agent.bus import Event
 from open_agent.config import Settings
 
 

@@ -4,18 +4,16 @@ from __future__ import annotations
 
 import enum
 import json
-import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any
 
-
-def new_id() -> str:
-    return str(uuid.uuid4())
-
-
-def utcnow() -> datetime:
-    return datetime.now(timezone.utc)
+from mini_agent.persistence.models import (  # noqa: F401
+    MessageRole,
+    TokenUsage,
+    new_id,
+    utcnow,
+)
 
 
 class SessionStatus(str, enum.Enum):
@@ -29,25 +27,6 @@ class AgentRunStatus(str, enum.Enum):
     COMPLETED = "completed"
     FAILED = "failed"
     CANCELLED = "cancelled"
-
-
-class MessageRole(str, enum.Enum):
-    USER = "user"
-    ASSISTANT = "assistant"
-    SYSTEM = "system"
-    TOOL = "tool"
-
-
-@dataclass
-class TokenUsage:
-    input_tokens: int = 0
-    output_tokens: int = 0
-    total_cost: float = 0.0
-
-    def add(self, other: TokenUsage) -> None:
-        self.input_tokens += other.input_tokens
-        self.output_tokens += other.output_tokens
-        self.total_cost += other.total_cost
 
 
 @dataclass

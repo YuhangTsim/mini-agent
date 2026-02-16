@@ -98,7 +98,7 @@ class TestOpenAIProvider:
             events.append(event)
         
         # Check for tool call events
-        tool_call_events = [e for e in events if e.type.value == "tool_call_start"]
+        _ = [e for e in events if e.type.value == "tool_call_start"]  # Check tool call events
         
         # Model may or may not call the tool depending on its behavior
         # Just verify we got a response

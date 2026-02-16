@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import asyncio
+from pathlib import Path
 
 import click
+from prompt_toolkit import PromptSession
+from prompt_toolkit.history import FileHistory
 from rich.console import Console
 from rich.live import Live
 from rich.markdown import Markdown
@@ -170,20 +173,32 @@ async def run_repl(settings: Settings | None = None) -> None:
     # Set up delegation display (subscribes to bus events via __init__)
     DelegationDisplay(app.bus)
 
+    provider = app.settings.provider
+    tool_count = len(app.tool_registry.all_tools())
+    default_agent = app.agent_registry.get_required(app.settings.default_agent)
     console.print(
         Panel(
             "[bold]Open-Agent[/bold] — Multi-agent AI framework\n"
+            f"[dim]Provider: {provider.name} | "
+            f"Default model: {default_agent.config.model}[/dim]\n"
             f"[dim]Default agent: {app.settings.default_agent} | "
-            f"Agents: {', '.join(app.agent_registry.roles())}[/dim]",
+            f"Agents: {', '.join(app.agent_registry.roles())} | "
+            f"Tools: {tool_count}[/dim]",
             border_style="blue",
         )
     )
     console.print("[dim]Type your message. Ctrl+C or 'exit' to quit.[/dim]\n")
 
+    # Set up prompt_toolkit with history
+    history_dir = Path(app.settings.data_dir)
+    history_dir.mkdir(parents=True, exist_ok=True)
+    history_file = history_dir / "open_agent_repl_history"
+    session = PromptSession(history=FileHistory(str(history_file)))
+
     try:
         while True:
             try:
-                user_input = console.input("[bold green]> [/bold green]").strip()
+                user_input = (await session.prompt_async("▶ ")).strip()
             except EOFError:
                 break
 
@@ -232,12 +247,64 @@ async def _handle_command(cmd: str, app: OpenAgentApp) -> None:
             console.print(f"  [cyan]{tool.name:25}[/cyan] {tool.category}")
         console.print()
 
+    elif command == "/history":
+        sessions = await app.store.list_sessions(limit=10)
+        if not sessions:
+            console.print("\n[dim]No sessions found.[/dim]\n")
+        else:
+            console.print("\n[bold]Recent Sessions:[/bold]")
+            for s in sessions:
+                status_color = "green" if s.status.value == "completed" else "yellow"
+                title = s.title[:60] if s.title else "(untitled)"
+                console.print(
+                    f"  [{status_color}]{s.status.value:10}[/{status_color}] "
+                    f"{s.id[:8]}... | {title} | "
+                    f"{s.token_usage.input_tokens}in/{s.token_usage.output_tokens}out"
+                )
+            console.print()
+
+    elif command == "/model":
+        provider = app.settings.provider
+        console.print("\n[bold]Provider & Model Info:[/bold]")
+        console.print(f"  Provider: {provider.name}")
+        if provider.base_url:
+            console.print(f"  Base URL: {provider.base_url}")
+        console.print(f"  API Key:  {'set' if provider.resolve_api_key() else 'not set'}")
+        console.print("\n[bold]Per-Agent Models:[/bold]")
+        for agent in app.agent_registry.all_agents():
+            console.print(
+                f"  [cyan]{agent.role:12}[/cyan] | "
+                f"model={agent.config.model} | "
+                f"temp={agent.config.temperature}"
+            )
+        console.print()
+
+    elif command == "/session":
+        if app._session is None:
+            console.print("\n[dim]No active session yet.[/dim]\n")
+        else:
+            s = app._session
+            console.print("\n[bold]Current Session:[/bold]")
+            console.print(f"  ID:      {s.id}")
+            console.print(f"  Status:  {s.status.value}")
+            console.print(f"  Title:   {s.title or '(untitled)'}")
+            console.print(f"  Dir:     {s.working_directory}")
+            console.print(
+                f"  Tokens:  {s.token_usage.input_tokens} in / "
+                f"{s.token_usage.output_tokens} out"
+            )
+            console.print(f"  Created: {s.created_at.isoformat()}")
+            console.print()
+
     elif command == "/help":
         console.print("\n[bold]Commands:[/bold]")
-        console.print("  /agents  — List registered agents")
-        console.print("  /tools   — List registered tools")
-        console.print("  /help    — Show this help")
-        console.print("  exit     — Quit")
+        console.print("  /agents   — List registered agents")
+        console.print("  /tools    — List registered tools")
+        console.print("  /history  — List recent sessions")
+        console.print("  /model    — Show provider and per-agent model info")
+        console.print("  /session  — Show current session details")
+        console.print("  /help     — Show this help")
+        console.print("  exit      — Quit")
         console.print()
 
     else:
@@ -245,17 +312,21 @@ async def _handle_command(cmd: str, app: OpenAgentApp) -> None:
 
 
 @click.group(invoke_without_command=True)
+@click.option("-c", "--config", "config_path", default=None, help="Path to config file")
 @click.pass_context
-def cli(ctx: click.Context) -> None:
+def cli(ctx: click.Context, config_path: str | None) -> None:
     """Open-Agent: Multi-agent AI framework."""
     if ctx.invoked_subcommand is None:
-        asyncio.run(run_repl())
+        settings = Settings.load(config_path) if config_path else None
+        asyncio.run(run_repl(settings))
 
 
 @cli.command()
-def chat() -> None:
+@click.option("-c", "--config", "config_path", default=None, help="Path to config file")
+def chat(config_path: str | None) -> None:
     """Start interactive chat (default)."""
-    asyncio.run(run_repl())
+    settings = Settings.load(config_path) if config_path else None
+    asyncio.run(run_repl(settings))
 
 
 def main() -> None:

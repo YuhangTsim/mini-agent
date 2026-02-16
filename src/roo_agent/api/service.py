@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 from datetime import datetime
-from pathlib import Path
 from typing import Any
 
 from ..config.settings import Settings
@@ -12,7 +11,7 @@ from ..core.agent import Agent, AgentCallbacks
 from ..core.mode import ModeConfig, get_mode, list_modes
 from ..persistence.export import export_task as _export_task
 from ..persistence.models import (
-    Message, MessageRole, Task, TaskStatus, TokenUsage, new_id,
+    Message, Task, TaskStatus, TokenUsage, new_id,
 )
 from ..persistence.store import Store
 from ..prompts.builder import PromptBuilder

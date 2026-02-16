@@ -18,7 +18,7 @@ from rich.table import Table
 
 from ..config.settings import Settings
 from ..core.agent import Agent, AgentCallbacks
-from ..core.mode import ModeConfig, get_mode, list_modes
+from ..core.mode import get_mode, list_modes
 from ..persistence.export import export_task
 from ..persistence.models import Task, TaskStatus, TokenUsage, new_id
 from ..persistence.store import Store
@@ -78,7 +78,7 @@ class CLICallbacks:
                 return
             if len(output) > 500:
                 output = output[:500] + "..."
-            console.print(f"  [green]OK[/green]")
+            console.print("  [green]OK[/green]")
             if output.strip():
                 console.print(f"[dim]{output}[/dim]")
 
@@ -549,7 +549,7 @@ def serve(host, port, static_dir, config_path):
     """Start the HTTP API server."""
     try:
         from ..api.http.server import run_server
-    except ImportError as e:
+    except ImportError:
         click.echo(
             "Error: FastAPI dependencies not installed.\n"
             "Install with: uv pip install -e '.[api]'",

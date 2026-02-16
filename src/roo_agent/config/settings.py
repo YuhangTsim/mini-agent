@@ -76,7 +76,7 @@ class Settings:
 
     @property
     def db_path(self) -> str:
-        return os.path.join(self.data_dir, "tasks.db")
+        return os.path.join(self.data_dir, "agent.db")
 
     @property
     def skills_dirs(self) -> list[Path]:

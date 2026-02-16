@@ -5,7 +5,6 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-import click
 from rich.console import Console
 from rich.panel import Panel
 from rich.prompt import Prompt, Confirm
@@ -210,12 +209,12 @@ def run_configuration_wizard(project_dir: Path | None = None, force: bool = Fals
             if use_env:
                 api_key = ""  # Will be resolved from env
             else:
-                api_key = Prompt.ask(f"Enter API key", password=True)
+                api_key = Prompt.ask("Enter API key", password=True)
         else:
             console.print(f"\n[yellow]Set {env_var} environment variable to avoid entering API key in config[/yellow]")
             save_key = Confirm.ask("Save API key in config file? (not recommended)", default=False)
             if save_key:
-                api_key = Prompt.ask(f"Enter API key", password=True)
+                api_key = Prompt.ask("Enter API key", password=True)
             else:
                 console.print(f"[dim]You'll need to set {env_var} before running roo-agent[/dim]")
     elif selected_key == "ollama":

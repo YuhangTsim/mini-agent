@@ -18,9 +18,9 @@ else:
     except ModuleNotFoundError:
         import tomli as tomllib  # type: ignore[no-redef]
 
-DEFAULT_CONFIG_DIR = ".open-agent"
+DEFAULT_CONFIG_DIR = ".mini-agent"
 DEFAULT_CONFIG_FILE = "config.toml"
-GLOBAL_CONFIG_DIR = Path.home() / ".open-agent"
+GLOBAL_CONFIG_DIR = Path.home() / ".mini-agent"
 
 
 @dataclass
@@ -128,7 +128,7 @@ class Settings:
 
     @property
     def db_path(self) -> str:
-        return os.path.join(self.data_dir, "sessions.db")
+        return os.path.join(self.data_dir, "agent.db")
 
     @property
     def skills_dirs(self) -> list[Path]:
@@ -144,20 +144,27 @@ class Settings:
     @classmethod
     def load(cls, config_path: str | Path | None = None) -> "Settings":
         if config_path is None:
-            config_path = Path(os.getcwd()) / DEFAULT_CONFIG_DIR / DEFAULT_CONFIG_FILE
+            # Search chain: project-local then global
+            project_config = Path(os.getcwd()) / DEFAULT_CONFIG_DIR / DEFAULT_CONFIG_FILE
+            global_config = GLOBAL_CONFIG_DIR / DEFAULT_CONFIG_FILE
+            if project_config.exists():
+                config_path = project_config
+            elif global_config.exists():
+                config_path = global_config
 
-        config_path = Path(config_path)
         raw: dict[str, Any] = {}
 
-        if config_path.exists():
-            with open(config_path, "rb") as f:
-                raw = tomllib.load(f)
+        if config_path is not None:
+            config_path = Path(config_path)
+            if config_path.exists():
+                with open(config_path, "rb") as f:
+                    raw = tomllib.load(f)
 
         return cls._from_dict(raw)
 
     @classmethod
     def _from_dict(cls, data: dict[str, Any]) -> "Settings":
-        # Provider
+        # Provider (shared top-level section)
         prov_data = data.get("providers", {}).get("openai", data.get("provider", {}))
         provider = ProviderConfig(
             name=prov_data.get("name", "openai"),
@@ -165,17 +172,23 @@ class Settings:
             base_url=prov_data.get("base_url"),
         )
 
-        # Agents
+        # Unwrap the open_agent namespace from unified config
+        oa = data.get("open_agent", {})
+
+        # Agents: prefer open_agent.agents, fall back to top-level agents
         agents: dict[str, AgentConfig] = {}
-        for role, agent_data in data.get("agents", {}).items():
+        agents_data = oa.get("agents", data.get("agents", {}))
+        for role, agent_data in agents_data.items():
+            agent_data = dict(agent_data)  # copy to avoid mutating config
             agent_data.setdefault("role", role)
             agents[role] = AgentConfig(**agent_data)
 
         # Permissions
         permissions = [PermissionRule(**p) for p in data.get("permissions", [])]
 
-        general = data.get("general", {})
-        background = data.get("background", {})
+        # General settings: prefer open_agent section, fall back to top-level general
+        general = oa or data.get("general", {})
+        background = oa.get("background", data.get("background", {}))
 
         return cls(
             provider=provider,

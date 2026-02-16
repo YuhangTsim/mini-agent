@@ -5,15 +5,13 @@ from __future__ import annotations
 import json
 from datetime import datetime
 
-import pytest
 
+from mini_agent.persistence.models import MessageRole, TokenUsage, new_id, utcnow
 from open_agent.persistence.models import (
     Session, SessionStatus,
     AgentRun, AgentRunStatus,
-    Message, MessageRole,
+    Message,
     ToolCall,
-    TokenUsage,
-    new_id, utcnow,
 )
 
 

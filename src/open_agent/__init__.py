@@ -14,4 +14,4 @@ from .persistence.models import Session
 from .core.app import OpenAgentApp as Orchestrator
 from .agents.orchestrator import OrchestratorAgent
 
-__all__ = ["Session", "Orchestrator"]
+__all__ = ["Session", "Orchestrator", "OrchestratorAgent"]

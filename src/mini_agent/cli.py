@@ -92,8 +92,9 @@ def _save_config(
     # Build TOML content
     lines = [
         "# Mini-Agent Configuration",
-        "# This config works for both roo-agent (default) and open-agent (--open)",
+        "# Shared by both roo-agent (default) and open-agent (--open)",
         "",
+        "# === Shared Provider (used by both) ===",
         "[provider]",
         f'name = "{provider_name}"',
         f'model = "{model}"',
@@ -109,22 +110,8 @@ def _save_config(
         "max_tokens = 4096",
         "temperature = 0.0",
         "",
-        "[open_agent]",
-        'default_agent = "orchestrator"',
-        "max_delegation_depth = 3",
-        "",
-        "[open_agent.background]",
-        "max_concurrent = 3",
-        "",
-        "# Agent-specific configurations for open-agent",
-        "[open_agent.agents.orchestrator]",
-        'role = "orchestrator"',
-        'model = "gpt-4o"',
-        "temperature = 0.0",
-        "",
-        "[open_agent.agents.explorer]",
-        'role = "explorer"',
-        'model = "gpt-4o-mini"',
+        "# === Roo-Agent Settings ===",
+        'default_mode = "code"  # code, plan, ask, debug, orchestrator',
         "",
         "[tool_approval]",
         'read_file = "auto_approve"',
@@ -134,6 +121,23 @@ def _save_config(
         'edit_file = "always_ask"',
         'execute_command = "always_ask"',
         '"*" = "ask_once"',
+        "",
+        "# === Open-Agent Settings ===",
+        "[open_agent]",
+        'default_agent = "orchestrator"',
+        "max_delegation_depth = 3",
+        "",
+        "[open_agent.background]",
+        "max_concurrent = 3",
+        "",
+        "[open_agent.agents.orchestrator]",
+        'role = "orchestrator"',
+        f'model = "{model}"',
+        "temperature = 0.0",
+        "",
+        "[open_agent.agents.explorer]",
+        'role = "explorer"',
+        f'model = "{model}"',
     ])
 
     config_path.write_text("\n".join(lines))
@@ -240,7 +244,7 @@ def run_configuration_wizard(
             if use_env:
                 api_key = ""  # Will be resolved from env
             else:
-                api_key = Prompt.ask(f"Enter API key", password=True)
+                api_key = Prompt.ask("Enter API key", password=True)
         else:
             console.print(
                 f"\n[yellow]Tip:[/yellow] Set {env_var} environment variable to avoid entering API key in config"
@@ -249,7 +253,7 @@ def run_configuration_wizard(
                 "Save API key in config file? (not recommended)", default=False
             )
             if save_key:
-                api_key = Prompt.ask(f"Enter API key", password=True)
+                api_key = Prompt.ask("Enter API key", password=True)
             else:
                 console.print(
                     f"[dim]You'll need to set {env_var} before running mini-agent[/dim]"
@@ -335,7 +339,7 @@ def check_and_configure(config_path: str | Path | None = None) -> bool:
     help="Use open-agent (multi-agent) instead of roo-agent (default)",
 )
 @click.option("--config", "-c", default=None, help="Path to config file")
-@click.option("--mode", default="coder", help="Agent mode (roo-agent only)")
+@click.option("--mode", default="code", help="Agent mode (roo-agent only)")
 @click.option(
     "--configure", is_flag=True, help="Run configuration wizard"
 )
@@ -379,6 +383,13 @@ def main(ctx, use_open, config, mode, configure):
         asyncio.run(run_repl(settings))
     else:
         # Default: roo-agent
+        valid_modes = ("code", "plan", "ask", "debug", "orchestrator")
+        if mode not in valid_modes:
+            console.print(
+                f"[red]Invalid mode '{mode}'. Valid modes: {', '.join(valid_modes)}[/red]"
+            )
+            return
+
         console.print(
             Panel.fit(
                 "[bold blue]Roo Agent[/] - Mode-based agent framework (default)",
@@ -386,7 +397,6 @@ def main(ctx, use_open, config, mode, configure):
             )
         )
         from roo_agent.cli.app import run_repl
-        from roo_agent.config.settings import Settings as RooSettings
         from roo_agent.cli.config_wizard import check_and_configure as roo_check
         import asyncio
 

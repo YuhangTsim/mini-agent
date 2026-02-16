@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 from open_agent.api.service import AgentService
-from open_agent.bus import Event, EventBus
+from open_agent.bus import EventBus
 from open_agent.config import Settings
 
 

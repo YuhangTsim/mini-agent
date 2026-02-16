@@ -10,6 +10,7 @@ from open_agent.tools.base import BaseTool, ToolContext, ToolResult
 
 class ExecuteCommandTool(BaseTool):
     name = "execute_command"
+    groups = ["command"]
     description = (
         "Execute a shell command and return its output. Commands run in the working directory "
         "with a timeout.\n\n"

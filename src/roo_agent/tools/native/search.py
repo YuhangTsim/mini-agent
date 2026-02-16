@@ -12,6 +12,7 @@ from open_agent.tools.base import BaseTool, ToolContext, ToolResult
 
 class SearchFilesTool(BaseTool):
     name = "search_files"
+    groups = ["read"]
     description = (
         "Search for a regex pattern across files in a directory. "
         "Returns matching lines with file paths and line numbers.\n\n"
@@ -99,6 +100,7 @@ class SearchFilesTool(BaseTool):
 
 class ListFilesTool(BaseTool):
     name = "list_files"
+    groups = ["read"]
     description = (
         "List files and directories at the given path. Use recursive=true to see the full tree.\n\n"
         'Example: { "path": ".", "recursive": true }'

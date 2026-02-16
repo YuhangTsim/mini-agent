@@ -9,6 +9,7 @@ from ..base import BaseTool, ToolContext, ToolResult
 
 class SkillTool(BaseTool):
     name = "skill"
+    groups = ["read", "edit", "command"]
     description = "Load the full instructions for a skill by name."
     parameters = {
         "type": "object",
@@ -19,6 +20,7 @@ class SkillTool(BaseTool):
             },
         },
         "required": ["name"],
+        "additionalProperties": False,
     }
     always_available = True
 

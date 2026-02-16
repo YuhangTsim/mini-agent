@@ -105,7 +105,6 @@ class TestCLIConfiguration:
     
     def test_config_loading(self, runner, monkeypatch):
         """Test that CLI loads configuration properly."""
-        from open_agent.cli.app import main
         from open_agent.config import Settings
         
         # Create a test config

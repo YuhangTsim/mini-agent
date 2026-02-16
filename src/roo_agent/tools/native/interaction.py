@@ -9,6 +9,7 @@ from ..base import BaseTool, ToolContext, ToolResult
 
 class AskFollowupQuestionTool(BaseTool):
     name = "ask_followup_question"
+    groups = ["read", "edit", "command"]
     description = (
         "Ask the user a question to gather additional information needed to complete the task. "
         "Use when you need clarification or more details to proceed effectively. The conversation "

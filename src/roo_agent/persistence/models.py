@@ -4,14 +4,11 @@ from __future__ import annotations
 
 import enum
 import json
-import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
-
-def new_id() -> str:
-    return str(uuid.uuid4())
+from mini_agent.persistence.models import MessageRole, TokenUsage, new_id  # noqa: F401
 
 
 class TaskStatus(str, enum.Enum):
@@ -20,13 +17,6 @@ class TaskStatus(str, enum.Enum):
     COMPLETED = "completed"
     FAILED = "failed"
     CANCELLED = "cancelled"
-
-
-class MessageRole(str, enum.Enum):
-    USER = "user"
-    ASSISTANT = "assistant"
-    SYSTEM = "system"
-    TOOL = "tool"
 
 
 @dataclass
@@ -52,18 +42,6 @@ class ContentBlock:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> ContentBlock:
         return cls(**{k: v for k, v in data.items() if k in cls.__dataclass_fields__})
-
-
-@dataclass
-class TokenUsage:
-    input_tokens: int = 0
-    output_tokens: int = 0
-    total_cost: float = 0.0
-
-    def add(self, other: TokenUsage) -> None:
-        self.input_tokens += other.input_tokens
-        self.output_tokens += other.output_tokens
-        self.total_cost += other.total_cost
 
 
 @dataclass

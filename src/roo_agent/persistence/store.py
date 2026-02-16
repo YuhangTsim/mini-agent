@@ -2,108 +2,23 @@
 
 from __future__ import annotations
 
-import aiosqlite
-from pathlib import Path
-
+from mini_agent.persistence.base import BaseStore
 from .models import Task, Message, ToolCall
 
 
-SCHEMA_VERSION = 1
+class Store(BaseStore):
+    """Async SQLite store for roo-agent persistence.
 
-SCHEMA_SQL = """
-CREATE TABLE IF NOT EXISTS schema_version (
-    version INTEGER PRIMARY KEY
-);
-
-CREATE TABLE IF NOT EXISTS tasks (
-    id TEXT PRIMARY KEY,
-    parent_id TEXT REFERENCES tasks(id),
-    root_id TEXT,
-    mode TEXT NOT NULL,
-    status TEXT NOT NULL DEFAULT 'pending',
-    title TEXT,
-    description TEXT,
-    working_directory TEXT,
-    result TEXT,
-    todo_list TEXT,
-    metadata TEXT,
-    input_tokens INTEGER DEFAULT 0,
-    output_tokens INTEGER DEFAULT 0,
-    estimated_cost REAL DEFAULT 0.0,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    completed_at TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS messages (
-    id TEXT PRIMARY KEY,
-    task_id TEXT NOT NULL REFERENCES tasks(id),
-    role TEXT NOT NULL,
-    content TEXT NOT NULL,
-    token_count INTEGER DEFAULT 0,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE INDEX IF NOT EXISTS idx_messages_task_id ON messages(task_id);
-
-CREATE TABLE IF NOT EXISTS tool_calls (
-    id TEXT PRIMARY KEY,
-    task_id TEXT NOT NULL REFERENCES tasks(id),
-    message_id TEXT REFERENCES messages(id),
-    tool_name TEXT NOT NULL,
-    parameters TEXT,
-    result TEXT,
-    status TEXT,
-    duration_ms INTEGER,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE INDEX IF NOT EXISTS idx_tool_calls_task_id ON tool_calls(task_id);
-"""
-
-
-class Store:
-    """Async SQLite store for persistence."""
-
-    def __init__(self, db_path: str):
-        self.db_path = db_path
-        self._db: aiosqlite.Connection | None = None
-
-    async def initialize(self) -> None:
-        """Open database and ensure schema exists."""
-        Path(self.db_path).parent.mkdir(parents=True, exist_ok=True)
-        self._db = await aiosqlite.connect(self.db_path)
-        self._db.row_factory = aiosqlite.Row
-        await self._db.executescript(SCHEMA_SQL)
-        # Set schema version
-        await self._db.execute(
-            "INSERT OR IGNORE INTO schema_version (version) VALUES (?)",
-            (SCHEMA_VERSION,),
-        )
-        await self._db.commit()
-
-    async def close(self) -> None:
-        if self._db:
-            await self._db.close()
-            self._db = None
-
-    @property
-    def db(self) -> aiosqlite.Connection:
-        if self._db is None:
-            raise RuntimeError("Store not initialized. Call initialize() first.")
-        return self._db
+    Uses the unified schema from mini_agent.persistence with prefixed table names:
+    - tasks (unchanged)
+    - task_messages (was: messages)
+    - task_tool_calls (was: tool_calls)
+    """
 
     # --- Tasks ---
 
     async def create_task(self, task: Task) -> Task:
-        row = task.to_row()
-        cols = ", ".join(row.keys())
-        placeholders = ", ".join(["?"] * len(row))
-        await self.db.execute(
-            f"INSERT INTO tasks ({cols}) VALUES ({placeholders})",
-            list(row.values()),
-        )
-        await self.db.commit()
+        await self._insert("tasks", task.to_row())
         return task
 
     async def get_task(self, task_id: str) -> Task | None:
@@ -161,19 +76,12 @@ class Store:
     # --- Messages ---
 
     async def add_message(self, message: Message) -> Message:
-        row = message.to_row()
-        cols = ", ".join(row.keys())
-        placeholders = ", ".join(["?"] * len(row))
-        await self.db.execute(
-            f"INSERT INTO messages ({cols}) VALUES ({placeholders})",
-            list(row.values()),
-        )
-        await self.db.commit()
+        await self._insert("task_messages", message.to_row())
         return message
 
     async def get_messages(self, task_id: str) -> list[Message]:
         cursor = await self.db.execute(
-            "SELECT * FROM messages WHERE task_id = ? ORDER BY created_at ASC",
+            "SELECT * FROM task_messages WHERE task_id = ? ORDER BY created_at ASC",
             (task_id,),
         )
         rows = await cursor.fetchall()
@@ -182,19 +90,12 @@ class Store:
     # --- Tool Calls ---
 
     async def add_tool_call(self, tool_call: ToolCall) -> ToolCall:
-        row = tool_call.to_row()
-        cols = ", ".join(row.keys())
-        placeholders = ", ".join(["?"] * len(row))
-        await self.db.execute(
-            f"INSERT INTO tool_calls ({cols}) VALUES ({placeholders})",
-            list(row.values()),
-        )
-        await self.db.commit()
+        await self._insert("task_tool_calls", tool_call.to_row())
         return tool_call
 
     async def get_tool_calls(self, task_id: str) -> list[ToolCall]:
         cursor = await self.db.execute(
-            "SELECT * FROM tool_calls WHERE task_id = ? ORDER BY created_at ASC",
+            "SELECT * FROM task_tool_calls WHERE task_id = ? ORDER BY created_at ASC",
             (task_id,),
         )
         rows = await cursor.fetchall()

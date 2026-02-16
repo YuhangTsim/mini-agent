@@ -11,7 +11,7 @@ from typing import Any
 def build_system_info_section(context: dict[str, Any]) -> str:
     """Build system information section."""
     working_dir = context.get("working_directory", "")
-    agent_config = context["agent_config"]
+    mode = context.get("mode")
 
     lines = [
         "====",
@@ -23,8 +23,12 @@ def build_system_info_section(context: dict[str, Any]) -> str:
         f"Home Directory: {os.path.expanduser('~')}",
         f"Current Workspace Directory: {working_dir}",
         f"Current Date: {datetime.now(timezone.utc).strftime('%Y-%m-%d')}",
-        f"Agent Role: {agent_config.role}",
-        f"Agent Name: {agent_config.name}",
     ]
+
+    if mode:
+        lines.extend([
+            f"Mode: {mode.name}",
+            f"Mode Slug: {mode.slug}",
+        ])
 
     return "\n".join(lines)

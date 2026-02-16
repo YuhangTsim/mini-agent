@@ -51,6 +51,7 @@ class BaseTool(ABC):
     parameters: dict[str, Any] = {}
     category: str = "native"  # "native" | "agent" | "extension"
     skip_approval: bool = False
+    groups: list[str] = []  # Tool groups like "read", "edit", "command"
 
     @abstractmethod
     async def execute(self, params: dict[str, Any], context: ToolContext) -> ToolResult:
@@ -100,6 +101,22 @@ class ToolRegistry:
         if denied:
             tools = [t for t in tools if t.name not in denied]
 
+        return tools
+
+    def get_tools_for_mode(self, tool_groups: list[str]) -> list[BaseTool]:
+        """Get tools available for a mode based on tool groups.
+
+        Returns tools that belong to any of the specified tool groups,
+        plus tools marked as always_available.
+        """
+        tools = []
+        for tool in self._tools.values():
+            # Include always_available tools regardless of groups
+            if getattr(tool, 'always_available', False):
+                tools.append(tool)
+            # Also include tools matching the requested groups
+            elif tool_groups and any(group in tool.groups for group in tool_groups):
+                tools.append(tool)
         return tools
 
     def check_approval(self, tool_name: str, policy: str) -> ApprovalPolicy:

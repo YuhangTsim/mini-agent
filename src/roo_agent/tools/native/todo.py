@@ -10,6 +10,7 @@ from ..base import BaseTool, ToolContext, ToolResult
 
 class UpdateTodoListTool(BaseTool):
     name = "update_todo_list"
+    groups = ["read", "edit", "command"]
     description = (
         "Update the current task's todo/checklist. Provide the full list of items. "
         "Each item has text and a done boolean. Use this to track progress on multi-step tasks."
