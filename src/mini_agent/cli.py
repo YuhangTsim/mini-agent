@@ -54,7 +54,7 @@ def cli():
 @cli.command(name="version")
 def version_cmd():
     """Show version information."""
-    from minimal_agent import __version__
+    from mini_agent import __version__
     console.print(f"mini-agent version {__version__}")
 
 

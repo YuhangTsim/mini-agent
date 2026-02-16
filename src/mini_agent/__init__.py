@@ -1,7 +1,7 @@
-"""Minimal Agent - Dual framework AI platform.
+"""Mini Agent - Dual framework AI platform.
 
 Usage:
-    from minimal_agent import roo, open
+    from mini_agent import roo, open
     
     # Use roo-agent (mode-based)
     agent = roo.Agent(mode="coder")
@@ -20,4 +20,4 @@ def __getattr__(name):
     elif name == "open":
         import open_agent as _open
         return _open
-    raise AttributeError(f"module 'minimal_agent' has no attribute '{name}'")
+    raise AttributeError(f"module 'mini_agent' has no attribute '{name}'")
