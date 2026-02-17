@@ -473,9 +473,9 @@ class Agent:
 
         # Execute
         context = ToolContext(
-            task_id=task.id,
+            session_id=task.id,
+            agent_role=task.mode,
             working_directory=task.working_directory or self.settings.working_directory,
-            mode=task.mode,
             request_user_input=self.callbacks.request_user_input,
         )
 

@@ -29,7 +29,7 @@ class TestRooAgentToolCalling:
     @pytest.fixture
     def provider(self, settings):
         """Create provider."""
-        from roo_agent.providers.registry import create_provider
+        from agent_kernel.providers.registry import create_provider
         return create_provider(settings.provider)
     
     @pytest.fixture
