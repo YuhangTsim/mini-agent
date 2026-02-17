@@ -24,8 +24,10 @@ class ProviderRegistry:
         cache_key = f"{self._provider_config.name}:{agent_config.model}"
 
         if cache_key not in self._cache:
-            api_key = self._provider_config.resolve_api_key()
-            if not api_key:
+            api_key = self._provider_config.resolve_api_key() or ""
+            # Allow empty API key for OpenAI-compatible providers with custom base_url
+            # (e.g., Ollama, local vLLM, etc.)
+            if not api_key and not self._provider_config.base_url:
                 raise ValueError(
                     f"No API key found for provider '{self._provider_config.name}'. "
                     f"Set the appropriate environment variable."
