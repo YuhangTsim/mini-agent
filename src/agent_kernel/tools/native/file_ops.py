@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 from typing import Any
 
-from open_agent.tools.base import BaseTool, ToolContext, ToolResult
+from agent_kernel.tools.base import BaseTool, ToolContext, ToolResult
 
 
 class ReadFileTool(BaseTool):
@@ -62,7 +62,7 @@ class WriteFileTool(BaseTool):
     description = (
         "Write content to a file. Creates the file if it doesn't exist, overwrites if it does. "
         "You MUST provide the COMPLETE file content.\n\n"
-        'Example: { "path": "src/app.py", "content": "print(\'hello\')\\n" }'
+        'Example: { "path": "src/app.py", "content": "print(\'hello\')\n" }'
     )
     parameters = {
         "type": "object",

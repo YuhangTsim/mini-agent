@@ -1,7 +1,3 @@
-"""Tool system base - re-exports from agent_kernel."""
-
-from __future__ import annotations
-
 from agent_kernel.tools.base import (
     ApprovalPolicy,
     BaseTool,
@@ -9,6 +5,7 @@ from agent_kernel.tools.base import (
     ToolRegistry,
     ToolResult,
 )
+from agent_kernel.tools.permissions import PermissionChecker
 
 __all__ = [
     "ApprovalPolicy",
@@ -16,4 +13,5 @@ __all__ = [
     "ToolContext",
     "ToolRegistry",
     "ToolResult",
+    "PermissionChecker",
 ]

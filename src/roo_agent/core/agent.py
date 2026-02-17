@@ -10,10 +10,16 @@ from typing import Any, Callable, Awaitable
 import platform
 
 from ..persistence.models import (
-    Message, MessageRole, Task, TaskStatus, TokenUsage, TodoItem, ToolCall,
+    Message,
+    MessageRole,
+    Task,
+    TaskStatus,
+    TokenUsage,
+    TodoItem,
+    ToolCall,
 )
 from ..persistence.store import Store
-from ..providers.base import BaseProvider, StreamEventType, ToolDefinition
+from agent_kernel.providers.base import BaseProvider, StreamEventType, ToolDefinition
 from ..tools.base import ApprovalPolicy, ToolContext, ToolRegistry, ToolResult
 from ..config.settings import Settings
 from .mode import ModeConfig, get_mode
@@ -26,7 +32,9 @@ class AgentCallbacks:
     on_text_delta: Callable[[str], Awaitable[None]] | None = None
     on_tool_call_start: Callable[[str, str, str], Awaitable[None]] | None = None  # id, name, args
     on_tool_call_end: Callable[[str, str, ToolResult], Awaitable[None]] | None = None
-    on_tool_approval_request: Callable[[str, str, dict], Awaitable[str]] | None = None  # name, id, params -> "y"/"n"/"always"
+    on_tool_approval_request: Callable[[str, str, dict], Awaitable[str]] | None = (
+        None  # name, id, params -> "y"/"n"/"always"
+    )
     request_user_input: Callable[[str, list[str] | None], Awaitable[str]] | None = None
     on_message_end: Callable[[TokenUsage], Awaitable[None]] | None = None
 
@@ -84,29 +92,29 @@ class Agent:
         if mode.custom_instructions:
             parts.extend(["", "## Mode-Specific Instructions", mode.custom_instructions])
 
-        parts.extend([
-            "",
-            "====",
-            "",
-            "SYSTEM INFORMATION",
-            "",
-            f"Operating System: {platform.system()}",
-            f"Current Workspace Directory: {working_dir}",
-            f"Current Mode: {mode.name} ({mode.slug})",
-            "",
-            "====",
-            "",
-            "OBJECTIVE",
-            "",
-            "You accomplish the given task iteratively, breaking it down into clear steps.",
-            "Once you've completed the task, use the attempt_completion tool to present the result.",
-        ])
+        parts.extend(
+            [
+                "",
+                "====",
+                "",
+                "SYSTEM INFORMATION",
+                "",
+                f"Operating System: {platform.system()}",
+                f"Current Workspace Directory: {working_dir}",
+                f"Current Mode: {mode.name} ({mode.slug})",
+                "",
+                "====",
+                "",
+                "OBJECTIVE",
+                "",
+                "You accomplish the given task iteratively, breaking it down into clear steps.",
+                "Once you've completed the task, use the attempt_completion tool to present the result.",
+            ]
+        )
 
         return "\n".join(parts)
 
-    async def _run_child_task(
-        self, parent_task: Task, mode_slug: str, description: str
-    ) -> str:
+    async def _run_child_task(self, parent_task: Task, mode_slug: str, description: str) -> str:
         """Create and run a child task, returning its result."""
         child_mode = get_mode(mode_slug)
         child_task = Task(
@@ -144,16 +152,18 @@ class Agent:
         for item in pending:
             lines.append(f"- [ ] {item.text}")
 
-        lines.extend([
-            "",
-            f"Next pending item: **{pending[0].text}**",
-            "",
-            "Instructions:",
-            "- If this item is straightforward, execute it directly using your tools.",
-            "- If this item is complex or isolated, delegate it using the new_task tool.",
-            "- After completing an item, call update_todo_list to mark it done.",
-            "- Do NOT use attempt_completion until all items are done.",
-        ])
+        lines.extend(
+            [
+                "",
+                f"Next pending item: **{pending[0].text}**",
+                "",
+                "Instructions:",
+                "- If this item is straightforward, execute it directly using your tools.",
+                "- If this item is complex or isolated, delegate it using the new_task tool.",
+                "- After completing an item, call update_todo_list to mark it done.",
+                "- Do NOT use attempt_completion until all items are done.",
+            ]
+        )
         return "\n".join(lines)
 
     async def run(
@@ -219,11 +229,13 @@ class Agent:
                         )
 
                 elif event.type == StreamEventType.TOOL_CALL_END:
-                    pending_tool_calls.append({
-                        "id": event.tool_call_id,
-                        "name": event.tool_name,
-                        "args": event.tool_args,
-                    })
+                    pending_tool_calls.append(
+                        {
+                            "id": event.tool_call_id,
+                            "name": event.tool_name,
+                            "args": event.tool_args,
+                        }
+                    )
 
                 elif event.type == StreamEventType.MESSAGE_END:
                     usage.input_tokens = event.input_tokens
@@ -239,9 +251,7 @@ class Agent:
                 if text_response:
                     final_text = text_response
                     # Store assistant message
-                    assistant_msg = Message.from_text(
-                        task.id, MessageRole.ASSISTANT, text_response
-                    )
+                    assistant_msg = Message.from_text(task.id, MessageRole.ASSISTANT, text_response)
                     assistant_msg.token_count = self.provider.count_tokens(text_response)
                     await self.store.add_message(assistant_msg)
                     conversation.append({"role": "assistant", "content": text_response})
@@ -273,10 +283,11 @@ class Agent:
             conversation.append(assistant_message)
 
             # Store assistant message
-            assistant_content = text_response or f"[Tool calls: {', '.join(tc['name'] for tc in pending_tool_calls)}]"
-            assistant_msg = Message.from_text(
-                task.id, MessageRole.ASSISTANT, assistant_content
+            assistant_content = (
+                text_response
+                or f"[Tool calls: {', '.join(tc['name'] for tc in pending_tool_calls)}]"
             )
+            assistant_msg = Message.from_text(task.id, MessageRole.ASSISTANT, assistant_content)
             await self.store.add_message(assistant_msg)
 
             # Execute tool calls, collecting results with conversation indices
@@ -293,11 +304,13 @@ class Agent:
                 # Add tool result to conversation (OpenAI format)
                 tool_content = result.output if not result.is_error else f"Error: {result.error}"
                 conv_index = len(conversation)
-                conversation.append({
-                    "role": "tool",
-                    "tool_call_id": tc["id"],
-                    "content": tool_content,
-                })
+                conversation.append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": tc["id"],
+                        "content": tool_content,
+                    }
+                )
                 tool_results.append((tc, result, conv_index))
 
             # Now emit on_message_end (after tool results are displayed)
@@ -315,7 +328,7 @@ class Agent:
 
                 # attempt_completion: mark task done and break
                 if output.startswith("__attempt_completion__:"):
-                    result_text = output[len("__attempt_completion__:"):]
+                    result_text = output[len("__attempt_completion__:") :]
                     task.status = TaskStatus.COMPLETED
                     task.result = result_text
                     final_text = result_text
@@ -326,7 +339,7 @@ class Agent:
 
                 # switch_mode: update mode, rebuild tools/prompt, continue
                 if output.startswith("__switch_mode__:"):
-                    payload = output[len("__switch_mode__:"):]
+                    payload = output[len("__switch_mode__:") :]
                     parts = payload.split(":", 1)
                     new_mode_slug = parts[0]
                     reason = parts[1] if len(parts) > 1 else ""
@@ -355,7 +368,7 @@ class Agent:
 
                 # new_task: run child task, feed result back
                 if output.startswith("__new_task__:"):
-                    payload = output[len("__new_task__:"):]
+                    payload = output[len("__new_task__:") :]
                     parts = payload.split(":", 1)
                     child_mode = parts[0]
                     child_desc = parts[1] if len(parts) > 1 else ""
@@ -419,6 +432,7 @@ class Agent:
         # Check file restrictions for mode
         if mode.file_restrictions and tool_name in ("write_file", "edit_file"):
             import re
+
             restriction = mode.file_restrictions.get("edit")
             if restriction and "path" in params:
                 if not re.search(restriction, params["path"]):
@@ -434,7 +448,9 @@ class Agent:
 
         if policy == ApprovalPolicy.DENY:
             result = ToolResult.failure(f"Tool '{tool_name}' is denied by policy.")
-            await self._store_tool_call(task.id, tool_name, tool_args_str, result, 0, status="denied")
+            await self._store_tool_call(
+                task.id, tool_name, tool_args_str, result, 0, status="denied"
+            )
             return result
 
         if tool.skip_approval:
@@ -448,7 +464,9 @@ class Agent:
                     self.registry.set_session_approval(tool_name, True)
                 elif response != "y":
                     result = ToolResult.failure(f"Tool '{tool_name}' was denied by user.")
-                    await self._store_tool_call(task.id, tool_name, tool_args_str, result, 0, status="denied")
+                    await self._store_tool_call(
+                        task.id, tool_name, tool_args_str, result, 0, status="denied"
+                    )
                     if self.callbacks.on_tool_call_end:
                         await self.callbacks.on_tool_call_end(tool_call_id, tool_name, result)
                     return result
@@ -475,7 +493,9 @@ class Agent:
                 todo_json = result.output.split(marker, 1)[1]
                 try:
                     items = json.loads(todo_json)
-                    task.todo_list = [TodoItem(text=i["text"], done=i.get("done", False)) for i in items]
+                    task.todo_list = [
+                        TodoItem(text=i["text"], done=i.get("done", False)) for i in items
+                    ]
                 except (json.JSONDecodeError, KeyError):
                     pass
 

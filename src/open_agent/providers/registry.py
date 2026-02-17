@@ -1,11 +1,20 @@
-"""Provider registry for per-agent model selection."""
+"""Deprecated: Use agent_kernel.providers instead."""
 
 from __future__ import annotations
 
+import warnings
+
+warnings.warn(
+    "open_agent.providers.registry is deprecated. Use agent_kernel.providers.registry instead.",
+    DeprecationWarning,
+    stacklevel=2,
+)
+
+# Keep the original ProviderRegistry for backward compatibility
 from open_agent.config.agents import AgentConfig
 from open_agent.config.settings import ProviderConfig
-from open_agent.providers.base import BaseProvider
-from open_agent.providers.openai import OpenAIProvider
+from agent_kernel.providers.base import BaseProvider
+from agent_kernel.providers.openai import OpenAIProvider
 
 
 class ProviderRegistry:

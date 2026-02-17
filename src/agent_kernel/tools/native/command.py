@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
-from open_agent.tools.base import BaseTool, ToolContext, ToolResult
+from agent_kernel.tools.base import BaseTool, ToolContext, ToolResult
 
 
 class ExecuteCommandTool(BaseTool):

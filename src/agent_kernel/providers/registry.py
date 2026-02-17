@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
-from ..config.settings import ProviderConfig
+from typing import TYPE_CHECKING
+
 from .base import PROVIDER_MODELS, BaseProvider, ModelInfo
 from .openai import OpenAIProvider
+
+if TYPE_CHECKING:
+    from roo_agent.config.settings import ProviderConfig
 
 
 _PROVIDERS: dict[str, type] = {
@@ -12,7 +16,7 @@ _PROVIDERS: dict[str, type] = {
 }
 
 
-def create_provider(config: ProviderConfig) -> BaseProvider:
+def create_provider(config: "ProviderConfig") -> BaseProvider:
     """Create a provider instance from config.
 
     Any provider with a base_url or name "openai" uses the OpenAI-compatible client.
@@ -36,7 +40,9 @@ def create_provider(config: ProviderConfig) -> BaseProvider:
             f"Set it in config or via environment variable."
         )
 
-    raise ValueError(f"Unknown provider: {config.name}. Available: openai (or any OpenAI-compatible with base_url)")
+    raise ValueError(
+        f"Unknown provider: {config.name}. Available: openai (or any OpenAI-compatible with base_url)"
+    )
 
 
 def list_models(provider_name: str) -> list[ModelInfo]:
