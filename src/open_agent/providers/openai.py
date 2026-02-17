@@ -37,10 +37,21 @@ class OpenAIProvider(BaseProvider):
         self._max_context = max_context
         self._max_output = max_output
         self._client = AsyncOpenAI(api_key=api_key, base_url=base_url)
+        self._encoding = self._get_encoding_safe(model)
+
+    def _get_encoding_safe(self, model: str) -> tiktoken.Encoding | None:
+        """Get tiktoken encoding, handling network errors gracefully."""
         try:
-            self._encoding = tiktoken.encoding_for_model(model)
+            return tiktoken.encoding_for_model(model)
         except KeyError:
-            self._encoding = tiktoken.get_encoding("cl100k_base")
+            try:
+                return tiktoken.get_encoding("cl100k_base")
+            except Exception:
+                # Network/offline error - will use approximate counting
+                return None
+        except Exception:
+            # Any other error (network, etc.)
+            return None
 
     async def create_message(
         self,
@@ -141,7 +152,10 @@ class OpenAIProvider(BaseProvider):
         active_tool_calls.clear()
 
     def count_tokens(self, text: str) -> int:
-        return len(self._encoding.encode(text))
+        if self._encoding:
+            return len(self._encoding.encode(text))
+        # Fallback: rough approximation (4 chars ≈ 1 token)
+        return len(text) // 4
 
     def get_model_info(self) -> ModelInfo:
         return ModelInfo(
