@@ -51,6 +51,8 @@ DEFAULT_AGENTS: dict[str, dict[str, Any]] = {
             "delegate_background",
             "check_background_task",
             "report_result",
+            "todo_write",
+            "todo_read",
         ],
         "can_delegate_to": ["explorer", "librarian", "oracle", "designer", "fixer"],
     },

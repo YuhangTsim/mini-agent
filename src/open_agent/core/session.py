@@ -15,6 +15,7 @@ from open_agent.persistence.models import (
     AgentRunStatus,
     Message,
     MessageRole,
+    TodoItem,
     TokenUsage,
     ToolCall,
     utcnow,
@@ -250,6 +251,10 @@ class SessionProcessor:
                     )
                     should_break = True
                     break
+                elif tool_name == "todo_write":
+                    result = await self._handle_todo_write(agent_run, tc, params)
+                elif tool_name == "todo_read":
+                    result = await self._handle_todo_read(agent_run, tc, params)
                 else:
                     result = await self._execute_tool(agent_run, tc, params)
 
@@ -486,3 +491,85 @@ class SessionProcessor:
             duration_ms=duration_ms,
         )
         await self.store.add_tool_call(tc)
+
+    async def _handle_todo_write(
+        self, agent_run: AgentRun, tc: dict[str, str], params: dict
+    ) -> ToolResult:
+        """Handle todo_write tool call - persist todos and publish event."""
+        todo_data = params.get("todos", [])
+
+        # Convert to TodoItem objects
+        todos = []
+        for item in todo_data:
+            todo = TodoItem(
+                id=item.get("id", ""),
+                content=item.get("content", ""),
+                status=item.get("status", "pending"),
+                priority=item.get("priority", "medium"),
+                session_id=agent_run.session_id,
+            )
+            todos.append(todo)
+
+        # Persist to database (full-sync: replace all todos for this session)
+        await self.store.update_todos_batch(agent_run.session_id, todos)
+
+        # Publish event for UI updates
+        await self.bus.publish(
+            Event.TODO_UPDATED,
+            session_id=agent_run.session_id,
+            agent_role=self.agent.role,
+            data={"todos": [t.to_row() for t in todos]},
+        )
+
+        # Format response
+        pending = sum(1 for t in todos if t.status == "pending")
+        in_progress = sum(1 for t in todos if t.status == "in_progress")
+        completed = sum(1 for t in todos if t.status == "completed")
+        cancelled = sum(1 for t in todos if t.status == "cancelled")
+
+        summary_parts = []
+        if completed:
+            summary_parts.append(f"{completed} completed")
+        if in_progress:
+            summary_parts.append(f"{in_progress} in progress")
+        if pending:
+            summary_parts.append(f"{pending} pending")
+        if cancelled:
+            summary_parts.append(f"{cancelled} cancelled")
+
+        summary = f"Todo list updated ({', '.join(summary_parts) if summary_parts else 'empty'})"
+        return ToolResult.success(summary)
+
+    async def _handle_todo_read(
+        self, agent_run: AgentRun, tc: dict[str, str], params: dict
+    ) -> ToolResult:
+        """Handle todo_read tool call - fetch todos from database."""
+        todos = await self.store.get_session_todos(agent_run.session_id)
+
+        if not todos:
+            return ToolResult.success("No todos for this session.")
+
+        # Format for display
+        lines = []
+        for todo in todos:
+            if todo.status == "pending":
+                symbol = "[ ]"
+            elif todo.status == "in_progress":
+                symbol = "[→]"
+            elif todo.status == "completed":
+                symbol = "[✓]"
+            elif todo.status == "cancelled":
+                symbol = "[✗]"
+            else:
+                symbol = "[?]"
+
+            priority_indicator = ""
+            if todo.priority == "high":
+                priority_indicator = " (!)"
+            elif todo.priority == "low":
+                priority_indicator = " (↓)"
+
+            lines.append(f"  {symbol} {todo.content}{priority_indicator}")
+
+        display = "\n".join(lines)
+        return ToolResult.success(f"Current todo list:\n{display}")

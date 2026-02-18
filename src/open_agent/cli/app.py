@@ -123,6 +123,7 @@ class DelegationDisplay:
         self.bus.subscribe(Event.BACKGROUND_TASK_COMPLETE, self._on_bg_complete)
         self.bus.subscribe(Event.BACKGROUND_TASK_FAILED, self._on_bg_failed)
         self.bus.subscribe(Event.AGENT_START, self._on_agent_start)
+        self.bus.subscribe(Event.TODO_UPDATED, self._on_todo_updated)
 
     async def _on_delegation_start(self, payload: EventPayload) -> None:
         target = payload.data.get("target_role", "?")
@@ -151,6 +152,65 @@ class DelegationDisplay:
         role = payload.agent_role
         if role != "orchestrator":
             console.print(f"\n[dim]── {role} ──[/dim]")
+
+    async def _on_todo_updated(self, payload: EventPayload) -> None:
+        """Display todo list updates in the CLI."""
+        todos = payload.data.get("todos", [])
+        if not todos:
+            return
+
+        # Build todo list display
+        lines = []
+        for todo in todos:
+            status = todo.get("status", "pending")
+            content = todo.get("content", "")
+            priority = todo.get("priority", "medium")
+
+            # Status symbols
+            if status == "pending":
+                symbol = "[dim][ ][/dim]"
+            elif status == "in_progress":
+                symbol = "[yellow][→][/yellow]"
+            elif status == "completed":
+                symbol = "[green][✓][/green]"
+            elif status == "cancelled":
+                symbol = "[red][✗][/red]"
+            else:
+                symbol = "[dim][?][/dim]"
+
+            # Priority indicators
+            prio_indicator = ""
+            if priority == "high":
+                prio_indicator = " [red]![/red]"
+            elif priority == "low":
+                prio_indicator = " [dim]↓[/dim]"
+
+            # Strikethrough for completed/cancelled
+            if status in ("completed", "cancelled"):
+                display_text = f"[strike]{content}[/strike]"
+            else:
+                display_text = content
+
+            lines.append(f"  {symbol} {display_text}{prio_indicator}")
+
+        # Count summary
+        pending = sum(1 for t in todos if t.get("status") == "pending")
+        in_progress = sum(1 for t in todos if t.get("status") == "in_progress")
+        completed = sum(1 for t in todos if t.get("status") == "completed")
+
+        summary_parts = []
+        if completed:
+            summary_parts.append(f"[green]{completed} done[/green]")
+        if in_progress:
+            summary_parts.append(f"[yellow]{in_progress} active[/yellow]")
+        if pending:
+            summary_parts.append(f"[dim]{pending} pending[/dim]")
+
+        title = "Todo List"
+        if summary_parts:
+            title += f" ({', '.join(summary_parts)})"
+
+        console.print(Panel("\n".join(lines), title=title, border_style="blue"))
 
 
 def _format_params(params: dict) -> str:

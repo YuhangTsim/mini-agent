@@ -1,27 +1,33 @@
-"""Deprecated: Use agent_kernel.tools.native instead."""
+"""Native tools for open-agent."""
 
-import warnings
+from __future__ import annotations
 
-warnings.warn(
-    "open_agent.tools.native is deprecated. Use agent_kernel.tools.native instead.",
-    DeprecationWarning,
-    stacklevel=2,
+from agent_kernel.tools.native import (
+    EditFileTool,
+    ExecuteCommandTool,
+    ListFilesTool,
+    ReadFileTool,
+    SearchFilesTool,
+    WriteFileTool,
 )
 
-from agent_kernel.tools.native import *  # noqa: F401,F403
+from open_agent.tools.native.todo import TodoReadTool, TodoWriteTool
+
+__all__ = [
+    "ExecuteCommandTool",
+    "EditFileTool",
+    "ReadFileTool",
+    "WriteFileTool",
+    "SearchFilesTool",
+    "ListFilesTool",
+    "TodoReadTool",
+    "TodoWriteTool",
+    "get_all_native_tools",
+]
 
 
 def get_all_native_tools():
-    """Return instances of all native tools."""
-    from agent_kernel.tools.native import (
-        ExecuteCommandTool,
-        EditFileTool,
-        ReadFileTool,
-        WriteFileTool,
-        SearchFilesTool,
-        ListFilesTool,
-    )
-
+    """Return instances of all native tools for open-agent."""
     return [
         ReadFileTool(),
         WriteFileTool(),
@@ -29,4 +35,6 @@ def get_all_native_tools():
         SearchFilesTool(),
         ListFilesTool(),
         ExecuteCommandTool(),
+        TodoReadTool(),
+        TodoWriteTool(),
     ]

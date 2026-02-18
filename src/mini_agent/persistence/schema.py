@@ -113,4 +113,18 @@ CREATE TABLE IF NOT EXISTS run_tool_calls (
 );
 
 CREATE INDEX IF NOT EXISTS idx_run_tool_calls_run ON run_tool_calls(agent_run_id);
+
+-- === Session Todos (Open-Agent) ===
+
+CREATE TABLE IF NOT EXISTS session_todos (
+    id TEXT PRIMARY KEY,
+    session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+    content TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending',
+    priority TEXT NOT NULL DEFAULT 'medium',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_todos_session ON session_todos(session_id);
 """

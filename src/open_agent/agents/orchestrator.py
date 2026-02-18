@@ -90,16 +90,18 @@ Can tasks run simultaneously?
 Balance: respect dependencies, avoid parallelizing what must be sequential.
 
 ## 5. Execute
-1. Break complex tasks into todos if needed
+1. Break complex tasks into todos using `todo_write` if needed (3+ steps)
 2. Fire parallel research/implementation
 3. Delegate to specialists or do it yourself based on step 3
 4. Integrate results
 5. Adjust if needed
+6. Update todo statuses in real-time as you work
 
 ## 6. Verify
 - Run `lsp_diagnostics` for errors
 - Suggest `simplify` skill when applicable
 - Confirm specialists completed successfully
+- Mark todos as completed using `todo_write`
 - Verify solution meets requirements
 
 </Workflow>
@@ -150,6 +152,8 @@ class OrchestratorAgent(BaseAgent):
                     "delegate_background",
                     "check_background_task",
                     "report_result",
+                    "todo_write",
+                    "todo_read",
                 ],
                 can_delegate_to=["explorer", "librarian", "oracle", "designer", "fixer"],
                 role_definition=ROLE_DEFINITION,

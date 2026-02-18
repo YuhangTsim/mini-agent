@@ -38,6 +38,9 @@ class Event(str, Enum):
     BACKGROUND_TASK_COMPLETE = "background.complete"
     BACKGROUND_TASK_FAILED = "background.failed"
 
+    # Todo updates
+    TODO_UPDATED = "todo.updated"
+
     # Errors
     ERROR = "error"
 

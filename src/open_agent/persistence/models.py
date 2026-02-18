@@ -213,3 +213,43 @@ class ToolCall:
             if row.get("created_at")
             else utcnow(),
         )
+
+
+@dataclass
+class TodoItem:
+    """A todo item for tracking progress within a session."""
+
+    id: str = field(default_factory=new_id)
+    content: str = ""
+    status: str = "pending"  # pending | in_progress | completed | cancelled
+    priority: str = "medium"  # high | medium | low
+    session_id: str = ""
+    created_at: datetime = field(default_factory=utcnow)
+    updated_at: datetime = field(default_factory=utcnow)
+
+    def to_row(self) -> dict[str, Any]:
+        return {
+            "id": self.id,
+            "session_id": self.session_id,
+            "content": self.content,
+            "status": self.status,
+            "priority": self.priority,
+            "created_at": self.created_at.isoformat(),
+            "updated_at": self.updated_at.isoformat(),
+        }
+
+    @classmethod
+    def from_row(cls, row: dict[str, Any]) -> TodoItem:
+        return cls(
+            id=row["id"],
+            content=row["content"],
+            status=row["status"],
+            priority=row["priority"],
+            session_id=row["session_id"],
+            created_at=datetime.fromisoformat(row["created_at"])
+            if row.get("created_at")
+            else utcnow(),
+            updated_at=datetime.fromisoformat(row["updated_at"])
+            if row.get("updated_at")
+            else utcnow(),
+        )

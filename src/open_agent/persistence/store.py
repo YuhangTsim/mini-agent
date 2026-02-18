@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from mini_agent.persistence.base import BaseStore
-from open_agent.persistence.models import AgentRun, Message, Session, ToolCall
+from open_agent.persistence.models import AgentRun, Message, Session, TodoItem, ToolCall
 
 
 class Store(BaseStore):
@@ -112,3 +112,38 @@ class Store(BaseStore):
         )
         rows = await cursor.fetchall()
         return [ToolCall.from_row(dict(r)) for r in rows]
+
+    # --- Todos ---
+
+    async def create_todo(self, todo: TodoItem) -> TodoItem:
+        await self._insert("session_todos", todo.to_row())
+        return todo
+
+    async def update_todo(self, todo: TodoItem) -> None:
+        row = todo.to_row()
+        sets = ", ".join(f"{k} = ?" for k in row if k != "id")
+        values = [v for k, v in row.items() if k != "id"]
+        values.append(todo.id)
+        await self.db.execute(f"UPDATE session_todos SET {sets} WHERE id = ?", values)
+        await self.db.commit()
+
+    async def get_session_todos(self, session_id: str) -> list[TodoItem]:
+        cursor = await self.db.execute(
+            "SELECT * FROM session_todos WHERE session_id = ? ORDER BY created_at ASC",
+            (session_id,),
+        )
+        rows = await cursor.fetchall()
+        return [TodoItem.from_row(dict(r)) for r in rows]
+
+    async def delete_todo(self, todo_id: str) -> None:
+        await self.db.execute("DELETE FROM session_todos WHERE id = ?", (todo_id,))
+        await self.db.commit()
+
+    async def update_todos_batch(self, session_id: str, todos: list[TodoItem]) -> None:
+        """Replace all todos for a session (full-sync pattern)."""
+        # Delete existing todos for this session
+        await self.db.execute("DELETE FROM session_todos WHERE session_id = ?", (session_id,))
+        # Insert new todos
+        for todo in todos:
+            todo.session_id = session_id
+            await self._insert("session_todos", todo.to_row())
