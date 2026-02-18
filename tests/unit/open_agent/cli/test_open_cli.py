@@ -151,6 +151,19 @@ class TestCLICallbacksToolCalls:
         # Output preview is capped at 80 chars; "..." should appear in long output
         assert "..." in output or len("x" * 200) > 80
 
+    async def test_on_tool_call_end_report_result_shows_full_content(self):
+        cb = CLICallbacks()
+        long_result = "Here is my detailed analysis:\n\n1. First point\n2. Second point\n\nConclusion: All good!"
+        result = ToolResult.success(f"Result reported: {long_result}")
+        with patch("open_agent.cli.app.console") as mock_console, \
+             patch("open_agent.cli.app.Markdown") as mock_markdown:
+            await cb.on_tool_call_end("id1", "report_result", result)
+        # Should indicate result was reported
+        output = " ".join(str(c) for c in mock_console.print.call_args_list)
+        assert "Result reported" in output
+        # Should render the actual content as markdown
+        mock_markdown.assert_called_once_with(long_result)
+
 
 # ---------------------------------------------------------------------------
 # CLICallbacks — message end

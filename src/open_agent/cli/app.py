@@ -44,6 +44,17 @@ class CLICallbacks:
     async def on_tool_call_end(self, call_id: str, name: str, result: ToolResult) -> None:
         if result.is_error:
             console.print(f" [red]✗ {result.error[:100]}[/red]")
+        elif name == "report_result":
+            # For report_result, extract and display the actual result content
+            # The result.output is "Result reported: {actual_result}"
+            prefix = "Result reported: "
+            if result.output.startswith(prefix):
+                actual_result = result.output[len(prefix):]
+                console.print(" [green]✓ Result reported[/green]")
+                console.print()
+                console.print(Markdown(actual_result))
+            else:
+                console.print(f" [green]✓[/green] {result.output}")
         else:
             output_preview = result.output[:80].replace("\n", " ")
             console.print(f" [green]✓[/green] [dim]{output_preview}[/dim]")
