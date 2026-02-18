@@ -33,6 +33,8 @@ dev = [
 mini-agent = "mini_agent.cli:main"
 roo-agent = "roo_agent.cli.app:main"
 open-agent = "open_agent.cli:main"
+open-agent-show-prompt = "mini_agent.scripts.open_agent_show_prompt:main"
+roo-agent-show-prompt = "mini_agent.scripts.roo_agent_show_prompt:main"
 
 [build-system]
 requires = ["hatchling"]
