@@ -7,18 +7,32 @@ import os
 import sys
 from typing import Any
 
-from open_agent.prompts.builder import PromptBuilder
-from open_agent.tools.base import ToolRegistry
-from open_agent.config.settings import Settings, DEFAULT_AGENTS
-from open_agent.tools.native import get_all_native_tools
+# Import all agent classes directly
+from open_agent.agents.orchestrator import OrchestratorAgent
+from open_agent.agents.explorer import ExplorerAgent
+from open_agent.agents.librarian import LibrarianAgent
+from open_agent.agents.oracle import OracleAgent
+from open_agent.agents.designer import DesignerAgent
+from open_agent.agents.fixer import FixerAgent
+
+
+AGENT_CLASSES = {
+    "orchestrator": OrchestratorAgent,
+    "explorer": ExplorerAgent,
+    "librarian": LibrarianAgent,
+    "oracle": OracleAgent,
+    "designer": DesignerAgent,
+    "fixer": FixerAgent,
+}
 
 
 def get_available_agents() -> dict[str, str]:
     """Get all available agents with their descriptions."""
-    settings = Settings()
     agents: dict[str, str] = {}
-    for slug, config in settings.agents.items():
-        agents[slug] = config.role_definition
+    for slug, agent_class in AGENT_CLASSES.items():
+        # Instantiate to get the full role definition
+        agent = agent_class()
+        agents[slug] = agent.config.role_definition
     return agents
 
 
@@ -28,32 +42,15 @@ def build_agent_prompt(agent_name: str) -> str | None:
     Returns:
         The prompt string if successful, None if agent not found.
     """
-    settings = Settings()
-
-    if agent_name not in settings.agents:
+    if agent_name not in AGENT_CLASSES:
         return None
 
-    agent_config = settings.agents[agent_name]
+    # Instantiate the agent to get proper configuration
+    agent_class = AGENT_CLASSES[agent_name]
+    agent = agent_class()
 
-    # Create tool registry and register native tools
-    tool_registry = ToolRegistry()
-    for tool in get_all_native_tools():
-        tool_registry.register(tool)
-
-    # Get tools for this agent
-    allowed_tools = []
-    for tool_name in agent_config.allowed_tools:
-        tool = tool_registry.get(tool_name)
-        if tool:
-            allowed_tools.append(tool)
-
-    # Build prompt
-    builder = PromptBuilder()
-    prompt = builder.build(
-        agent_config=agent_config,
-        working_directory=os.getcwd(),
-        tools=allowed_tools
-    )
+    # Build prompt using the agent's own method
+    prompt = agent.get_system_prompt(context={"working_directory": os.getcwd()})
 
     return prompt
 

@@ -22,7 +22,7 @@ BUILTIN_MODES: dict[str, ModeConfig] = {
         slug="code",
         name="Code",
         role_definition=(
-            "You are a highly skilled software engineer with extensive knowledge in many "
+            "You are Roo, a highly skilled software engineer with extensive knowledge in many "
             "programming languages, frameworks, design patterns, and best practices."
         ),
         when_to_use=(
@@ -39,7 +39,7 @@ BUILTIN_MODES: dict[str, ModeConfig] = {
         slug="plan",
         name="Architect",
         role_definition=(
-            "You are an experienced technical leader who is inquisitive and an excellent "
+            "You are Roo, an experienced technical leader who is inquisitive and an excellent "
             "planner. Your goal is to gather information and get context to create a detailed "
             "plan for accomplishing the user's task, which the user will review and approve "
             "before they switch into another mode to implement the solution."
@@ -72,7 +72,7 @@ BUILTIN_MODES: dict[str, ModeConfig] = {
         slug="ask",
         name="Ask",
         role_definition=(
-            "You are a knowledgeable technical assistant focused on answering questions "
+            "You are Roo, a knowledgeable technical assistant focused on answering questions "
             "and providing information about software development, technology, and related topics."
         ),
         when_to_use=(
@@ -93,7 +93,7 @@ BUILTIN_MODES: dict[str, ModeConfig] = {
         slug="debug",
         name="Debug",
         role_definition=(
-            "You are an expert software debugger specializing in systematic problem "
+            "You are Roo, an expert software debugger specializing in systematic problem "
             "diagnosis and resolution."
         ),
         when_to_use=(
@@ -115,7 +115,7 @@ BUILTIN_MODES: dict[str, ModeConfig] = {
         slug="orchestrator",
         name="Orchestrator",
         role_definition=(
-            "You are a strategic workflow orchestrator who coordinates complex tasks by "
+            "You are Roo, a strategic workflow orchestrator who coordinates complex tasks by "
             "delegating them to appropriate specialized modes. You have a comprehensive "
             "understanding of each mode's capabilities and limitations, allowing you to "
             "effectively break down complex problems into discrete tasks that can be solved "

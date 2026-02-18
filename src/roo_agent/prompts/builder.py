@@ -9,31 +9,35 @@ from ..persistence.models import Task
 from ..config.settings import Settings
 from ..tools.base import BaseTool
 from .sections.role import build_role_section
+from .sections.markdown_rules import build_markdown_rules_section
 from .sections.tools import build_tools_section
 from .sections.capabilities import build_capabilities_section
-from .sections.skills import build_skills_section
 from .sections.rules import build_rules_section
-from .sections.objective import build_objective_section
 from .sections.system_info import build_system_info_section
+from .sections.objective import build_objective_section
+from .sections.skills import build_skills_section
+from .sections.custom_instructions import build_custom_instructions_section
 
 
 class PromptBuilder:
     """Assembles system prompts from sections.
 
-    Section order follows Roo's proven layout:
-      Role → Tool Use → Capabilities → Modes (in role) → Skills → Rules → System Info → Objective → Custom Instructions
+    Section order follows Roo-Code's proven layout:
+      Role → MARKDOWN RULES → TOOL USE → CAPABILITIES → RULES → SYSTEM INFORMATION → OBJECTIVE → SKILLS → CUSTOM INSTRUCTIONS
     """
 
     def __init__(self):
-        # Ordered list of section builders
+        # Ordered list of section builders (matching Roo-Code order)
         self._sections = [
             build_role_section,
+            build_markdown_rules_section,
             build_tools_section,
             build_capabilities_section,
-            build_skills_section,
             build_rules_section,
             build_system_info_section,
             build_objective_section,
+            build_skills_section,
+            build_custom_instructions_section,
         ]
 
     def build(
