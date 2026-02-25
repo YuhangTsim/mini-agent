@@ -98,3 +98,25 @@ class TestProviderConfig:
         monkeypatch.delenv("OPENAI_API_KEY", raising=False)
         config = ProviderConfig(name="openai", model="gpt-4o")
         assert config.resolve_api_key() is None
+
+    def test_stream_default_true(self):
+        """Stream defaults to True."""
+        config = ProviderConfig(name="openai", model="gpt-4o")
+        assert config.stream is True
+
+    def test_stream_can_be_set_false(self):
+        """Stream can be set to False."""
+        config = ProviderConfig(name="openai", model="gpt-4o", stream=False)
+        assert config.stream is False
+
+    def test_stream_passed_to_provider(self):
+        """Stream setting is passed to provider instance."""
+        config = ProviderConfig(name="openai", model="gpt-4o", stream=False)
+        provider = create_provider(config)
+        assert provider._stream is False
+
+    def test_stream_true_passed_to_provider(self):
+        """Stream=True is passed to provider instance."""
+        config = ProviderConfig(name="openai", model="gpt-4o", stream=True)
+        provider = create_provider(config)
+        assert provider._stream is True
