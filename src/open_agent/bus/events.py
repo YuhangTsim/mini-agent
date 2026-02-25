@@ -41,6 +41,10 @@ class Event(str, Enum):
     # Todo updates
     TODO_UPDATED = "todo.updated"
 
+    # Compaction
+    COMPACTION_COMPLETE = "compaction.complete"
+    PRUNING_COMPLETE = "pruning.complete"
+
     # Errors
     ERROR = "error"
 

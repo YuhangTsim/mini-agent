@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from agent_kernel.providers.base import StreamEvent, StreamEventType
+from agent_kernel.providers.base import StreamEvent, StreamEventType, ModelInfo
 from agent_kernel.tools.base import BaseTool, ToolContext, ToolRegistry, ToolResult
 from open_agent.bus.bus import EventBus
 from open_agent.hooks.registry import HookRegistry
@@ -120,6 +120,14 @@ class MockProvider:
 
     def count_tokens(self, text: str) -> int:
         return len(text.split())
+
+    def get_model_info(self) -> ModelInfo:
+        return ModelInfo(
+            provider="mock",
+            model_id="mock-model",
+            max_context=1000,
+            max_output=100,
+        )
 
 
 # ---------------------------------------------------------------------------

@@ -10,6 +10,8 @@ from typing import Any, Awaitable, Callable
 
 from open_agent.agents.base import BaseAgent
 from open_agent.bus import Event, EventBus
+from open_agent.config.settings import CompactionSettings
+from open_agent.core.context.manager import CompactionManager
 from open_agent.persistence.models import (
     AgentRun,
     AgentRunStatus,
@@ -63,6 +65,7 @@ class SessionProcessor:
         delegation_handler: Callable[..., Awaitable[str]] | None = None,
         background_handler: Callable[..., Awaitable[str]] | None = None,
         background_status_handler: Callable[..., Awaitable[str]] | None = None,
+        compaction_settings: CompactionSettings | None = None,
     ) -> None:
         self.agent = agent
         self.provider = provider
@@ -76,6 +79,16 @@ class SessionProcessor:
         self._delegation_handler = delegation_handler
         self._background_handler = background_handler
         self._background_status_handler = background_status_handler
+        
+        # Initialize compaction manager if enabled
+        self._compaction_manager: CompactionManager | None = None
+        if compaction_settings and compaction_settings.auto:
+            self._compaction_manager = CompactionManager(
+                store=store,
+                provider=provider,
+                bus=bus,
+                settings=compaction_settings,
+            )
 
     async def process(
         self,
@@ -132,6 +145,25 @@ class SessionProcessor:
             if hook_result.cancelled:
                 final_text = f"LLM call cancelled by hook: {hook_result.reason}"
                 break
+
+            # Check and compact context if needed
+            if self._compaction_manager is not None:
+                current_tokens = self._estimate_tokens(conversation)
+                result = await self._compaction_manager.check_and_compact(
+                    session_id=agent_run.session_id,
+                    agent_run=agent_run,
+                    current_tokens=current_tokens,
+                )
+                if result and result.summary:
+                    # Add compaction summary to conversation
+                    conversation.append({
+                        "role": "system",
+                        "content": f"[Previous conversation summary]: {result.summary}",
+                    })
+                    logger.debug(
+                        f"Added compaction summary to conversation, "
+                        f"saved ~{result.tokens_before - result.tokens_after} tokens"
+                    )
 
             # Call LLM
             text_response = ""
@@ -573,3 +605,19 @@ class SessionProcessor:
 
         display = "\n".join(lines)
         return ToolResult.success(f"Current todo list:\n{display}")
+
+    def _estimate_tokens(self, conversation: list[dict[str, Any]]) -> int:
+        """Estimate token count for conversation messages.
+        
+        Uses a rough estimate of 1 token per 4 characters.
+        """
+        total = 0
+        for msg in conversation:
+            if isinstance(msg, dict):
+                content = msg.get("content", "")
+                if content:
+                    total += len(content) // 4
+            elif isinstance(msg, str):
+                total += len(msg) // 4
+        return total
+

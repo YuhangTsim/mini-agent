@@ -143,6 +143,8 @@ class Message:
     role: MessageRole = MessageRole.USER
     content: str = ""
     token_count: int = 0
+    is_compaction: bool = False  # Marks this as a compaction message
+    summary: str | None = None  # Summary content for compaction messages
     created_at: datetime = field(default_factory=utcnow)
 
     @staticmethod
@@ -156,6 +158,8 @@ class Message:
             "role": self.role.value,
             "content": self.content,
             "token_count": self.token_count,
+            "is_compaction": int(self.is_compaction),
+            "summary": self.summary,
             "created_at": self.created_at.isoformat(),
         }
 
@@ -167,6 +171,49 @@ class Message:
             role=MessageRole(row["role"]),
             content=row["content"],
             token_count=row.get("token_count", 0),
+            is_compaction=bool(row.get("is_compaction", 0)),
+            summary=row.get("summary"),
+            created_at=datetime.fromisoformat(row["created_at"])
+            if row.get("created_at")
+            else utcnow(),
+        )
+
+
+@dataclass
+class MessagePart:
+    """A part of a message with specific type for fine-grained compaction."""
+
+    id: str = field(default_factory=new_id)
+    message_id: str = ""
+    part_type: str = ""  # "text", "file", "tool", "compaction", "subtask"
+    content: str = ""
+    tool_name: str | None = None
+    tool_state: dict[str, Any] = field(default_factory=dict)  # status, output, etc.
+    compacted_at: int | None = None  # timestamp when compacted
+    created_at: datetime = field(default_factory=utcnow)
+
+    def to_row(self) -> dict[str, Any]:
+        return {
+            "id": self.id,
+            "message_id": self.message_id,
+            "part_type": self.part_type,
+            "content": self.content,
+            "tool_name": self.tool_name,
+            "tool_state": json.dumps(self.tool_state),
+            "compacted_at": self.compacted_at,
+            "created_at": self.created_at.isoformat(),
+        }
+
+    @classmethod
+    def from_row(cls, row: dict[str, Any]) -> MessagePart:
+        return cls(
+            id=row["id"],
+            message_id=row["message_id"],
+            part_type=row["part_type"],
+            content=row["content"],
+            tool_name=row.get("tool_name"),
+            tool_state=json.loads(row.get("tool_state") or "{}"),
+            compacted_at=row.get("compacted_at"),
             created_at=datetime.fromisoformat(row["created_at"])
             if row.get("created_at")
             else utcnow(),

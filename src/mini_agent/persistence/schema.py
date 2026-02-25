@@ -36,7 +36,11 @@ CREATE TABLE IF NOT EXISTS task_messages (
     role TEXT NOT NULL,
     content TEXT NOT NULL,
     token_count INTEGER DEFAULT 0,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    truncation_parent_id TEXT,
+    is_truncation_marker INTEGER DEFAULT 0,
+    is_summary INTEGER DEFAULT 0,
+    condense_parent_id TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_task_messages_task_id ON task_messages(task_id);
@@ -54,6 +58,20 @@ CREATE TABLE IF NOT EXISTS task_tool_calls (
 );
 
 CREATE INDEX IF NOT EXISTS idx_task_tool_calls_task_id ON task_tool_calls(task_id);
+
+-- === Conversation Summaries (roo-agent) ===
+
+CREATE TABLE IF NOT EXISTS conversation_summaries (
+    id TEXT PRIMARY KEY,
+    task_id TEXT NOT NULL REFERENCES tasks(id),
+    message_range_start TEXT NOT NULL,
+    message_range_end TEXT NOT NULL,
+    summary TEXT NOT NULL,
+    token_count INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_conversation_summaries_task ON conversation_summaries(task_id);
 
 -- === Open-Agent Tables ===
 

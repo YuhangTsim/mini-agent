@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from mini_agent.persistence.base import BaseStore
-from .models import Task, Message, ToolCall
+from .models import Task, Message, ToolCall, ConversationSummary
 
 
 class Store(BaseStore):
@@ -86,6 +86,67 @@ class Store(BaseStore):
         )
         rows = await cursor.fetchall()
         return [Message.from_row(dict(r)) for r in rows]
+
+    async def get_visible_messages(self, task_id: str) -> list[Message]:
+        """Get messages excluding hidden/truncated ones for display."""
+        cursor = await self.db.execute(
+            """SELECT * FROM task_messages 
+               WHERE task_id = ? 
+               AND (truncation_parent_id IS NULL OR is_truncation_marker = 1)
+               ORDER BY created_at ASC""",
+            (task_id,),
+        )
+        rows = await cursor.fetchall()
+        return [Message.from_row(dict(r)) for r in rows]
+
+    async def update_message(self, message: Message) -> None:
+        """Update an existing message."""
+        row = message.to_row()
+        sets = ", ".join(f"{k} = ?" for k in row.keys() if k != "id")
+        values = [v for k, v in row.items() if k != "id"]
+        values.append(message.id)
+        await self.db.execute(f"UPDATE task_messages SET {sets} WHERE id = ?", values)
+        await self.db.commit()
+
+    # --- Conversation Summaries ---
+
+    async def add_summary(self, summary: ConversationSummary) -> ConversationSummary:
+        await self._insert("conversation_summaries", summary.to_row())
+        return summary
+
+    async def get_summary(self, task_id: str) -> ConversationSummary | None:
+        """Get the most recent summary for a task."""
+        cursor = await self.db.execute(
+            """SELECT * FROM conversation_summaries 
+               WHERE task_id = ? 
+               ORDER BY created_at DESC LIMIT 1""",
+            (task_id,),
+        )
+        row = await cursor.fetchone()
+        if row is None:
+            return None
+        return ConversationSummary.from_row(dict(row))
+
+    async def get_summaries(self, task_id: str) -> list[ConversationSummary]:
+        """Get all summaries for a task, ordered by creation."""
+        cursor = await self.db.execute(
+            """SELECT * FROM conversation_summaries 
+               WHERE task_id = ? 
+               ORDER BY created_at ASC""",
+            (task_id,),
+        )
+        rows = await cursor.fetchall()
+        return [ConversationSummary.from_row(dict(r)) for r in rows]
+
+    async def delete_summary(self, summary_id: str) -> None:
+        """Delete a summary by ID."""
+        await self.db.execute("DELETE FROM conversation_summaries WHERE id = ?", (summary_id,))
+        await self.db.commit()
+
+    async def delete_message(self, message_id: str) -> None:
+        """Delete a message by ID."""
+        await self.db.execute("DELETE FROM task_messages WHERE id = ?", (message_id,))
+        await self.db.commit()
 
     # --- Tool Calls ---
 

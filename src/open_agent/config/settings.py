@@ -57,6 +57,13 @@ DEFAULT_AGENTS: dict[str, dict[str, Any]] = {
         ],
         "can_delegate_to": ["explorer", "librarian", "oracle", "designer", "fixer"],
     },
+    "compaction": {
+        "role": "compaction",
+        "model": "gpt-4o-mini",
+        "temperature": 0.3,
+        "allowed_tools": [],  # No tools - read-only summarization
+        "can_delegate_to": [],
+    },
     "explorer": {
         "role": "explorer",
         "model": "gpt-4o-mini",
@@ -110,6 +117,17 @@ DEFAULT_AGENTS: dict[str, dict[str, Any]] = {
 
 
 @dataclass
+class CompactionSettings:
+    """Compaction configuration for context management."""
+    
+    auto: bool = True
+    auto_prune: bool = True
+    prune_minimum: int = 20000
+    prune_protect: int = 40000
+    model: str = "gpt-4o-mini"
+
+
+@dataclass
 class Settings:
     provider: ProviderConfig = field(default_factory=ProviderConfig)
     agents: dict[str, AgentConfig] = field(default_factory=dict)
@@ -117,6 +135,7 @@ class Settings:
     default_agent: str = "orchestrator"
     max_delegation_depth: int = 3
     background_max_concurrent: int = 3
+    compaction: CompactionSettings = field(default_factory=CompactionSettings)
     working_directory: str = field(default_factory=lambda: os.getcwd())
     project_config_dir: str = DEFAULT_CONFIG_DIR
     data_dir: str = ""
@@ -193,6 +212,16 @@ class Settings:
         # General settings: prefer open_agent section, fall back to top-level general
         general = oa or data.get("general", {})
         background = oa.get("background", data.get("background", {}))
+        
+        # Compaction settings
+        compaction_data = oa.get("compaction", {})
+        compaction = CompactionSettings(
+            auto=compaction_data.get("auto", True),
+            auto_prune=compaction_data.get("auto_prune", True),
+            prune_minimum=compaction_data.get("prune_minimum", 20000),
+            prune_protect=compaction_data.get("prune_protect", 40000),
+            model=compaction_data.get("model", "gpt-4o-mini"),
+        )
 
         return cls(
             provider=provider,
@@ -201,6 +230,7 @@ class Settings:
             default_agent=general.get("default_agent", "orchestrator"),
             max_delegation_depth=general.get("max_delegation_depth", 3),
             background_max_concurrent=background.get("max_concurrent", 3),
+            compaction=compaction,
             working_directory=data.get("working_directory", os.getcwd()),
         )
 

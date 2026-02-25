@@ -63,9 +63,23 @@ class ApprovalConfig:
 
 
 @dataclass
+class ContextConfig:
+    """Configuration for context management (truncation/condensation)."""
+
+    enabled: bool = True
+    strategy: str = "auto"  # "truncate" | "condense" | "auto"
+    max_context_tokens: int | None = None  # Defaults to model max_context
+    truncation_threshold: float = 0.85  # Start truncating at 85% of context
+    condensation_threshold: float = 0.70  # Start condensing at 70%
+    keep_recent_messages: int = 6  # Always keep N most recent messages
+    summary_model: str = "gpt-4o-mini"  # Model for generating summaries
+
+
+@dataclass
 class Settings:
     provider: ProviderConfig = field(default_factory=ProviderConfig)
     approval: ApprovalConfig = field(default_factory=ApprovalConfig)
+    context: ContextConfig = field(default_factory=ContextConfig)
     default_mode: str = "code"
     working_directory: str = field(default_factory=lambda: os.getcwd())
     project_config_dir: str = DEFAULT_CONFIG_DIR
@@ -128,9 +142,21 @@ class Settings:
             default_policies.update(approval_data)
         approval = ApprovalConfig(policies=default_policies)
 
+        context_data = data.get("context", {})
+        context = ContextConfig(
+            enabled=context_data.get("enabled", True),
+            strategy=context_data.get("strategy", "auto"),
+            max_context_tokens=context_data.get("max_context_tokens"),
+            truncation_threshold=context_data.get("truncation_threshold", 0.85),
+            condensation_threshold=context_data.get("condensation_threshold", 0.70),
+            keep_recent_messages=context_data.get("keep_recent_messages", 6),
+            summary_model=context_data.get("summary_model", "gpt-4o-mini"),
+        )
+
         return cls(
             provider=provider,
             approval=approval,
+            context=context,
             default_mode=data.get("default_mode", "code"),
             working_directory=data.get("working_directory", os.getcwd()),
         )

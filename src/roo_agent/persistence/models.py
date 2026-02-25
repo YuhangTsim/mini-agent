@@ -137,6 +137,11 @@ class Message:
     content: str = ""  # JSON string for multimodal, plain text for simple
     token_count: int = 0
     created_at: datetime = field(default_factory=datetime.utcnow)
+    # Context management fields
+    truncation_parent_id: str | None = None
+    is_truncation_marker: bool = False
+    is_summary: bool = False
+    condense_parent_id: str | None = None
 
     def get_content_blocks(self) -> list[ContentBlock]:
         """Parse content as list of ContentBlocks."""
@@ -160,6 +165,10 @@ class Message:
             "content": self.content,
             "token_count": self.token_count,
             "created_at": self.created_at.isoformat(),
+            "truncation_parent_id": self.truncation_parent_id,
+            "is_truncation_marker": 1 if self.is_truncation_marker else 0,
+            "is_summary": 1 if self.is_summary else 0,
+            "condense_parent_id": self.condense_parent_id,
         }
 
     @classmethod
@@ -169,6 +178,46 @@ class Message:
             task_id=row["task_id"],
             role=MessageRole(row["role"]),
             content=row["content"],
+            token_count=row.get("token_count", 0),
+            created_at=datetime.fromisoformat(row["created_at"]) if row.get("created_at") else datetime.utcnow(),
+            truncation_parent_id=row.get("truncation_parent_id"),
+            is_truncation_marker=bool(row.get("is_truncation_marker", 0)),
+            is_summary=bool(row.get("is_summary", 0)),
+            condense_parent_id=row.get("condense_parent_id"),
+        )
+
+
+@dataclass
+class ConversationSummary:
+    """AI-generated summary of a conversation segment."""
+
+    id: str = field(default_factory=new_id)
+    task_id: str = ""
+    message_range_start: str = ""  # First message ID in range
+    message_range_end: str = ""  # Last message ID in range
+    summary: str = ""
+    token_count: int = 0
+    created_at: datetime = field(default_factory=datetime.utcnow)
+
+    def to_row(self) -> dict[str, Any]:
+        return {
+            "id": self.id,
+            "task_id": self.task_id,
+            "message_range_start": self.message_range_start,
+            "message_range_end": self.message_range_end,
+            "summary": self.summary,
+            "token_count": self.token_count,
+            "created_at": self.created_at.isoformat(),
+        }
+
+    @classmethod
+    def from_row(cls, row: dict[str, Any]) -> ConversationSummary:
+        return cls(
+            id=row["id"],
+            task_id=row["task_id"],
+            message_range_start=row["message_range_start"],
+            message_range_end=row["message_range_end"],
+            summary=row["summary"],
             token_count=row.get("token_count", 0),
             created_at=datetime.fromisoformat(row["created_at"]) if row.get("created_at") else datetime.utcnow(),
         )

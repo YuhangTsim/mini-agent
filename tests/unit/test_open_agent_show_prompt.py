@@ -8,29 +8,34 @@ from mini_agent.scripts.open_agent_show_prompt import (
     build_agent_prompt,
     list_agents,
     main,
+    AGENT_CLASSES,
 )
 
 
 class TestGetAvailableAgents:
     """Tests for get_available_agents function."""
 
-    @patch("mini_agent.scripts.open_agent_show_prompt.Settings")
-    def test_returns_agent_dict(self, mock_settings_class):
+    @patch.dict(
+        "mini_agent.scripts.open_agent_show_prompt.AGENT_CLASSES",
+        {
+            "orchestrator": MagicMock(),
+            "explorer": MagicMock(),
+        },
+        clear=True
+    )
+    def test_returns_agent_dict(self):
         """Should return dictionary of agent names to descriptions."""
-        # Setup mock config
-        mock_config1 = Mock()
-        mock_config1.role_definition = "Orchestrator agent description"
+        # Setup mock agent instances
+        mock_agent1 = MagicMock()
+        mock_agent1.config.role_definition = "Orchestrator agent description"
 
-        mock_config2 = Mock()
-        mock_config2.role_definition = "Explorer agent description"
+        mock_agent2 = MagicMock()
+        mock_agent2.config.role_definition = "Explorer agent description"
 
-        # Setup mock settings
-        mock_settings = Mock()
-        mock_settings.agents = {
-            "orchestrator": mock_config1,
-            "explorer": mock_config2,
-        }
-        mock_settings_class.return_value = mock_settings
+        # Setup mock classes to return instances
+        from mini_agent.scripts.open_agent_show_prompt import AGENT_CLASSES
+        AGENT_CLASSES["orchestrator"].return_value = mock_agent1
+        AGENT_CLASSES["explorer"].return_value = mock_agent2
 
         result = get_available_agents()
 
@@ -39,13 +44,13 @@ class TestGetAvailableAgents:
         assert result["orchestrator"] == "Orchestrator agent description"
         assert result["explorer"] == "Explorer agent description"
 
-    @patch("mini_agent.scripts.open_agent_show_prompt.Settings")
-    def test_empty_agents(self, mock_settings_class):
+    @patch.dict(
+        "mini_agent.scripts.open_agent_show_prompt.AGENT_CLASSES",
+        {},
+        clear=True
+    )
+    def test_empty_agents(self):
         """Should handle empty agents."""
-        mock_settings = Mock()
-        mock_settings.agents = {}
-        mock_settings_class.return_value = mock_settings
-
         result = get_available_agents()
 
         assert result == {}
@@ -54,48 +59,36 @@ class TestGetAvailableAgents:
 class TestBuildAgentPrompt:
     """Tests for build_agent_prompt function."""
 
-    @patch("mini_agent.scripts.open_agent_show_prompt.Settings")
-    @patch("mini_agent.scripts.open_agent_show_prompt.PromptBuilder")
-    @patch("mini_agent.scripts.open_agent_show_prompt.ToolRegistry")
-    @patch("mini_agent.scripts.open_agent_show_prompt.get_all_native_tools")
-    def test_builds_prompt_for_valid_agent(
-        self, mock_get_tools, mock_tool_registry_class, mock_builder_class, mock_settings_class
-    ):
+    @patch("mini_agent.scripts.open_agent_show_prompt.os.getcwd")
+    def test_builds_prompt_for_valid_agent(self, mock_getcwd):
         """Should build and return prompt for valid agent."""
-        # Setup mock settings
-        mock_config = Mock()
-        mock_config.allowed_tools = ["read_file", "search_files"]
+        mock_getcwd.return_value = "/test/dir"
 
-        mock_settings = Mock()
-        mock_settings.agents = {"orchestrator": mock_config}
-        mock_settings_class.return_value = mock_settings
+        # Create a mock agent class
+        mock_agent = MagicMock()
+        mock_agent.get_system_prompt.return_value = "Generated prompt text"
+        mock_agent_class = MagicMock(return_value=mock_agent)
 
-        # Setup mock tools
-        mock_tool = Mock()
-        mock_get_tools.return_value = [mock_tool]
-
-        mock_tool_registry = Mock()
-        mock_tool_registry.get.return_value = mock_tool
-        mock_tool_registry_class.return_value = mock_tool_registry
-
-        # Setup mock builder
-        mock_builder = Mock()
-        mock_builder.build.return_value = "Generated prompt text"
-        mock_builder_class.return_value = mock_builder
-
-        result = build_agent_prompt("orchestrator")
+        with patch.dict(
+            "mini_agent.scripts.open_agent_show_prompt.AGENT_CLASSES",
+            {"orchestrator": mock_agent_class},
+            clear=True
+        ):
+            result = build_agent_prompt("orchestrator")
 
         assert result == "Generated prompt text"
-        mock_builder.build.assert_called_once()
+        mock_agent.get_system_prompt.assert_called_once_with(
+            context={"working_directory": "/test/dir"}
+        )
 
-    @patch("mini_agent.scripts.open_agent_show_prompt.Settings")
-    def test_returns_none_for_invalid_agent(self, mock_settings_class):
+    def test_returns_none_for_invalid_agent(self):
         """Should return None for unknown agent."""
-        mock_settings = Mock()
-        mock_settings.agents = {}
-        mock_settings_class.return_value = mock_settings
-
-        result = build_agent_prompt("unknown_agent")
+        with patch.dict(
+            "mini_agent.scripts.open_agent_show_prompt.AGENT_CLASSES",
+            {},
+            clear=True
+        ):
+            result = build_agent_prompt("unknown_agent")
 
         assert result is None
 

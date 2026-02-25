@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from mini_agent.persistence.base import BaseStore
-from open_agent.persistence.models import AgentRun, Message, Session, TodoItem, ToolCall
+from open_agent.persistence.models import AgentRun, Message, MessagePart, Session, TodoItem, ToolCall
 
 
 class Store(BaseStore):
@@ -147,3 +147,52 @@ class Store(BaseStore):
         for todo in todos:
             todo.session_id = session_id
             await self._insert("session_todos", todo.to_row())
+
+    # --- Message Parts ---
+
+    async def add_message_part(self, part: MessagePart) -> MessagePart:
+        """Add a message part."""
+        await self._insert("message_parts", part.to_row())
+        return part
+
+    async def get_message_parts(self, message_id: str) -> list[MessagePart]:
+        """Get all parts for a message."""
+        cursor = await self.db.execute(
+            "SELECT * FROM message_parts WHERE message_id = ? ORDER BY created_at ASC",
+            (message_id,),
+        )
+        rows = await cursor.fetchall()
+        return [MessagePart.from_row(dict(r)) for r in rows]
+
+    async def get_compactable_messages(self, agent_run_id: str) -> list[Message]:
+        """Get messages that can be compacted (before last compaction summary)."""
+        cursor = await self.db.execute(
+            """SELECT * FROM run_messages 
+               WHERE agent_run_id = ? 
+               AND is_compaction = 0 
+               ORDER BY created_at ASC""",
+            (agent_run_id,),
+        )
+        rows = await cursor.fetchall()
+        return [Message.from_row(dict(r)) for r in rows]
+
+    async def get_last_compaction_message(self, agent_run_id: str) -> Message | None:
+        """Get the last compaction message for an agent run."""
+        cursor = await self.db.execute(
+            """SELECT * FROM run_messages 
+               WHERE agent_run_id = ? AND is_compaction = 1 
+               ORDER BY created_at DESC LIMIT 1""",
+            (agent_run_id,),
+        )
+        row = await cursor.fetchone()
+        return Message.from_row(dict(row)) if row else None
+
+    async def update_message_compacted(
+        self, message_id: str, compacted_at: int
+    ) -> None:
+        """Mark a message as compacted."""
+        await self.db.execute(
+            "UPDATE message_parts SET compacted_at = ? WHERE message_id = ?",
+            (compacted_at, message_id),
+        )
+        await self.db.commit()
