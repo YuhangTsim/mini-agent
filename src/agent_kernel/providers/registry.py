@@ -32,6 +32,7 @@ def create_provider(config: "ProviderConfig") -> BaseProvider:
             max_context=config.max_context,
             max_output=config.max_output,
             provider_name=config.name,
+            stream=getattr(config, "stream", True),
         )
 
     if not api_key:

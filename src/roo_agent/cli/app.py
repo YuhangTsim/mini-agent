@@ -496,19 +496,37 @@ async def run_repl(settings: Settings) -> None:
 
 @click.group(invoke_without_command=True)
 @click.option("--config", "-c", "config_path", default=None, help="Path to config file")
+@click.option(
+    "--stream/--no-stream",
+    "stream_enabled",
+    default=None,
+    help="Enable/disable streaming responses (default: enabled)",
+)
 @click.pass_context
-def main(ctx, config_path):
+def main(ctx, config_path, stream_enabled):
     """Roo-Agent: A mode-based AI agent framework following Roo Code philosophy."""
     if ctx.invoked_subcommand is None:
         settings = Settings.load(config_path)
+        # Override stream setting if CLI flag is provided
+        if stream_enabled is not None:
+            settings.provider.stream = stream_enabled
         asyncio.run(run_repl(settings))
 
 
 @main.command()
 @click.option("--config", "-c", "config_path", default=None)
-def chat(config_path):
+@click.option(
+    "--stream/--no-stream",
+    "stream_enabled",
+    default=None,
+    help="Enable/disable streaming responses (default: enabled)",
+)
+def chat(config_path, stream_enabled):
     """Start interactive chat session."""
     settings = Settings.load(config_path)
+    # Override stream setting if CLI flag is provided
+    if stream_enabled is not None:
+        settings.provider.stream = stream_enabled
     asyncio.run(run_repl(settings))
 
 

@@ -331,7 +331,7 @@ def check_and_configure(config_path: str | Path | None = None) -> bool:
     return result is not None
 
 
-@click.group(invoke_without_command=True)
+@click.group(invoke_without_command=True, context_settings={"help_option_names": ["-h", "--help"]})
 @click.option(
     "--open",
     "use_open",
@@ -343,8 +343,14 @@ def check_and_configure(config_path: str | Path | None = None) -> bool:
 @click.option(
     "--configure", is_flag=True, help="Run configuration wizard"
 )
+@click.option(
+    "--stream/--no-stream",
+    "stream_enabled",
+    default=None,
+    help="Enable/disable streaming responses (default: enabled)",
+)
 @click.pass_context
-def main(ctx, use_open, config, mode, configure):
+def main(ctx, use_open, config, mode, configure, stream_enabled):
     """Mini-Agent: AI agent framework (default: roo-agent, use --open for open-agent).
 
     \b
@@ -352,6 +358,7 @@ def main(ctx, use_open, config, mode, configure):
         mini-agent              # Start roo-agent (default)
         mini-agent --open       # Start open-agent (multi-agent)
         mini-agent --configure  # Run configuration wizard
+        mini-agent --no-stream  # Disable streaming responses
     """
     # If a subcommand was invoked, let it handle everything
     if ctx.invoked_subcommand is not None:
@@ -380,6 +387,9 @@ def main(ctx, use_open, config, mode, configure):
         import asyncio
 
         settings = OpenSettings.load(config)
+        # Override stream setting if CLI flag is provided
+        if stream_enabled is not None:
+            settings.provider.stream = stream_enabled
         asyncio.run(run_repl(settings))
     else:
         # Default: roo-agent
@@ -403,6 +413,9 @@ def main(ctx, use_open, config, mode, configure):
         # Use roo-agent's check_and_configure for full setup
         settings = roo_check(config)
         settings.default_mode = mode
+        # Override stream setting if CLI flag is provided
+        if stream_enabled is not None:
+            settings.provider.stream = stream_enabled
         asyncio.run(run_repl(settings))
 
 
