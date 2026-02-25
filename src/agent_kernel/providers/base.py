@@ -81,8 +81,18 @@ class BaseProvider(ABC):
         tools: list[ToolDefinition] | None = None,
         max_tokens: int = 4096,
         temperature: float = 0.0,
+        stream: bool = True,
     ) -> AsyncIterator[StreamEvent]:
-        """Send messages and stream back response events."""
+        """Send messages and stream back response events.
+
+        Args:
+            system_prompt: System instructions
+            messages: Conversation history
+            tools: Available tools for function calling
+            max_tokens: Max tokens in response
+            temperature: Sampling temperature
+            stream: If True, yield events incrementally. If False, return complete response.
+        """
         ...
 
     @abstractmethod

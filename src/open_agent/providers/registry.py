@@ -46,6 +46,7 @@ class ProviderRegistry:
                 model=agent_config.model,
                 base_url=self._provider_config.base_url,
                 provider_name=self._provider_config.name,
+                stream=self._provider_config.stream,
             )
 
         return self._cache[cache_key]

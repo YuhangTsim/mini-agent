@@ -24,6 +24,7 @@ class ProviderConfig:
     temperature: float = 0.0
     max_context: int | None = None
     max_output: int | None = None
+    stream: bool = True  # Enable streaming by default
 
     @property
     def is_openai_compatible(self) -> bool:

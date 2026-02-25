@@ -384,19 +384,37 @@ async def _handle_command(cmd: str, app: OpenAgentApp) -> None:
 
 @click.group(invoke_without_command=True)
 @click.option("-c", "--config", "config_path", default=None, help="Path to config file")
+@click.option(
+    "--stream/--no-stream",
+    "stream_enabled",
+    default=None,
+    help="Enable/disable streaming responses (default: enabled)",
+)
 @click.pass_context
-def cli(ctx: click.Context, config_path: str | None) -> None:
+def cli(ctx: click.Context, config_path: str | None, stream_enabled: bool | None) -> None:
     """Open-Agent: Multi-agent AI framework."""
     if ctx.invoked_subcommand is None:
-        settings = Settings.load(config_path) if config_path else None
+        settings = Settings.load(config_path) if config_path else Settings()
+        # Override stream setting if CLI flag is provided
+        if stream_enabled is not None:
+            settings.provider.stream = stream_enabled
         asyncio.run(run_repl(settings))
 
 
 @cli.command()
 @click.option("-c", "--config", "config_path", default=None, help="Path to config file")
-def chat(config_path: str | None) -> None:
+@click.option(
+    "--stream/--no-stream",
+    "stream_enabled",
+    default=None,
+    help="Enable/disable streaming responses (default: enabled)",
+)
+def chat(config_path: str | None, stream_enabled: bool | None) -> None:
     """Start interactive chat (default)."""
-    settings = Settings.load(config_path) if config_path else None
+    settings = Settings.load(config_path) if config_path else Settings()
+    # Override stream setting if CLI flag is provided
+    if stream_enabled is not None:
+        settings.provider.stream = stream_enabled
     asyncio.run(run_repl(settings))
 
 

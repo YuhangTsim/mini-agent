@@ -30,12 +30,14 @@ class OpenAIProvider(BaseProvider):
         max_context: int | None = None,
         max_output: int | None = None,
         provider_name: str = "openai",
+        stream: bool = True,
     ) -> None:
         self.model = model
         self._base_url = base_url
         self._provider_name = provider_name
         self._max_context = max_context
         self._max_output = max_output
+        self._stream = stream
         self._client = AsyncOpenAI(api_key=api_key, base_url=base_url)
         self._encoding = self._get_encoding_safe(model)
 
@@ -46,7 +48,11 @@ class OpenAIProvider(BaseProvider):
         tools: list[ToolDefinition] | None = None,
         max_tokens: int = 4096,
         temperature: float = 0.0,
+        stream: bool | None = None,
     ) -> AsyncIterator[StreamEvent]:
+        # Use stored setting as default, allow override per-call
+        if stream is None:
+            stream = self._stream
         api_messages = [{"role": "system", "content": system_prompt}] + messages
 
         kwargs: dict[str, Any] = {
@@ -54,14 +60,31 @@ class OpenAIProvider(BaseProvider):
             "messages": api_messages,
             "max_tokens": max_tokens,
             "temperature": temperature,
-            "stream": True,
+            "stream": stream,
         }
 
-        if self._provider_name == "openai":
+        if stream and self._provider_name == "openai":
             kwargs["stream_options"] = {"include_usage": True}
 
         if tools:
             kwargs["tools"] = [self._tool_to_openai(t) for t in tools]
+
+        if stream:
+            async for event in self._stream_response(api_messages, kwargs):
+                yield event
+        else:
+            async for event in self._non_stream_response(api_messages, kwargs):
+                yield event
+
+    async def _stream_response(
+        self,
+        api_messages: list[dict[str, Any]],
+        kwargs: dict[str, Any],
+    ) -> AsyncIterator[StreamEvent]:
+        """Handle streaming response."""
+        kwargs["stream"] = True
+        if self._provider_name == "openai":
+            kwargs["stream_options"] = {"include_usage": True}
 
         stream = await self._client.chat.completions.create(**kwargs)
 
@@ -127,7 +150,7 @@ class OpenAIProvider(BaseProvider):
         if not got_usage:
             output_text = accumulated_text + accumulated_tool_args
             estimated_output = self.count_tokens(output_text) if output_text else 0
-            input_text = system_prompt + json.dumps(api_messages, default=str)
+            input_text = "system" + json.dumps(api_messages, default=str)
             estimated_input = self.count_tokens(input_text)
             yield StreamEvent(
                 type=StreamEventType.MESSAGE_END,
@@ -136,6 +159,66 @@ class OpenAIProvider(BaseProvider):
             )
 
         active_tool_calls.clear()
+
+    async def _non_stream_response(
+        self,
+        api_messages: list[dict[str, Any]],
+        kwargs: dict[str, Any],
+    ) -> AsyncIterator[StreamEvent]:
+        """Handle non-streaming response."""
+        kwargs["stream"] = False
+
+        response = await self._client.chat.completions.create(**kwargs)
+
+        # Extract content
+        choice = response.choices[0]
+        content = choice.message.content or ""
+
+        # Yield text content if present
+        if content:
+            yield StreamEvent(type=StreamEventType.TEXT_DELTA, text=content)
+
+        # Handle tool calls
+        tool_calls = choice.message.tool_calls or []
+        for tc in tool_calls:
+            yield StreamEvent(
+                type=StreamEventType.TOOL_CALL_START,
+                tool_call_id=tc.id,
+                tool_name=tc.function.name,
+            )
+            yield StreamEvent(
+                type=StreamEventType.TOOL_CALL_DELTA,
+                tool_call_id=tc.id,
+                tool_name=tc.function.name,
+                tool_args=tc.function.arguments,
+            )
+            yield StreamEvent(
+                type=StreamEventType.TOOL_CALL_END,
+                tool_call_id=tc.id,
+                tool_name=tc.function.name,
+                tool_args=tc.function.arguments,
+            )
+
+        # Yield MESSAGE_END with token counts
+        if response.usage:
+            yield StreamEvent(
+                type=StreamEventType.MESSAGE_END,
+                input_tokens=response.usage.prompt_tokens,
+                output_tokens=response.usage.completion_tokens,
+            )
+        else:
+            # Fallback to token estimation
+            output_text = content + "".join(
+                tc.function.arguments for tc in tool_calls
+            )
+            estimated_output = self.count_tokens(output_text) if output_text else 0
+            input_text = "system" + json.dumps(api_messages, default=str)
+            estimated_input = self.count_tokens(input_text)
+            yield StreamEvent(
+                type=StreamEventType.MESSAGE_END,
+                input_tokens=estimated_input,
+                output_tokens=estimated_output,
+            )
 
     def count_tokens(self, text: str) -> int:
         if self._encoding is not None:

@@ -28,6 +28,7 @@ class ProviderConfig:
     name: str = "openai"
     api_key: str = ""
     base_url: str | None = None
+    stream: bool = True  # Enable streaming by default
 
     def resolve_api_key(self) -> str | None:
         if self.api_key:
@@ -172,6 +173,7 @@ class Settings:
             name=prov_data.get("name", "openai"),
             api_key=prov_data.get("api_key", ""),
             base_url=prov_data.get("base_url"),
+            stream=prov_data.get("stream", True),
         )
 
         # Unwrap the open_agent namespace from unified config
