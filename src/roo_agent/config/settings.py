@@ -80,6 +80,7 @@ class Settings:
     provider: ProviderConfig = field(default_factory=ProviderConfig)
     approval: ApprovalConfig = field(default_factory=ApprovalConfig)
     context: ContextConfig = field(default_factory=ContextConfig)
+    debug: bool = False
     default_mode: str = "code"
     working_directory: str = field(default_factory=lambda: os.getcwd())
     project_config_dir: str = DEFAULT_CONFIG_DIR
@@ -166,6 +167,7 @@ class Settings:
             provider=provider,
             approval=approval,
             context=context,
+            debug=data.get("debug", False),
             default_mode=data.get("default_mode", "code"),
             working_directory=data.get("working_directory", os.getcwd()),
         )

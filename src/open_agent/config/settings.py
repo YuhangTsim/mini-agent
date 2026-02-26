@@ -133,6 +133,7 @@ class Settings:
     provider: ProviderConfig = field(default_factory=ProviderConfig)
     agents: dict[str, AgentConfig] = field(default_factory=dict)
     permissions: list[PermissionRule] = field(default_factory=list)
+    debug: bool = False
     default_agent: str = "orchestrator"
     max_delegation_depth: int = 3
     background_max_concurrent: int = 3
@@ -229,6 +230,7 @@ class Settings:
             provider=provider,
             agents=agents,
             permissions=permissions,
+            debug=data.get("debug", False),
             default_agent=general.get("default_agent", "orchestrator"),
             max_delegation_depth=general.get("max_delegation_depth", 3),
             background_max_concurrent=background.get("max_concurrent", 3),

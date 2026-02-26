@@ -224,7 +224,7 @@ def _format_params(params: dict) -> str:
     return "\n".join(lines)
 
 
-async def run_repl(settings: Settings | None = None) -> None:
+async def run_repl(settings: Settings | None = None, debug: bool = False) -> None:
     """Run the interactive REPL."""
     app = OpenAgentApp(settings)
     await app.initialize()
@@ -286,7 +286,11 @@ async def run_repl(settings: Settings | None = None) -> None:
             try:
                 await app.process_message(user_input)
             except Exception as e:
-                console.print(f"[red]Error: {e}[/red]")
+                if debug:
+                    console.print("[red]Error:[/red] Full traceback")
+                    console.print_exception(show_locals=True)
+                else:
+                    console.print(f"[red]Error: {e}[/red]")
 
             console.print()
 
@@ -390,15 +394,27 @@ async def _handle_command(cmd: str, app: OpenAgentApp) -> None:
     default=None,
     help="Enable/disable streaming responses (default: enabled)",
 )
+@click.option(
+    "--debug/--no-debug",
+    is_flag=True,
+    default=None,
+    help="Show full tracebacks when errors occur",
+)
 @click.pass_context
-def cli(ctx: click.Context, config_path: str | None, stream_enabled: bool | None) -> None:
+def cli(
+    ctx: click.Context,
+    config_path: str | None,
+    stream_enabled: bool | None,
+    debug: bool | None,
+) -> None:
     """Open-Agent: Multi-agent AI framework."""
     if ctx.invoked_subcommand is None:
         settings = Settings.load(config_path) if config_path else Settings()
         # Override stream setting if CLI flag is provided
         if stream_enabled is not None:
             settings.provider.stream = stream_enabled
-        asyncio.run(run_repl(settings))
+        effective_debug = settings.debug if debug is None else debug
+        asyncio.run(run_repl(settings, debug=effective_debug))
 
 
 @cli.command()
@@ -409,13 +425,20 @@ def cli(ctx: click.Context, config_path: str | None, stream_enabled: bool | None
     default=None,
     help="Enable/disable streaming responses (default: enabled)",
 )
-def chat(config_path: str | None, stream_enabled: bool | None) -> None:
+@click.option(
+    "--debug/--no-debug",
+    is_flag=True,
+    default=None,
+    help="Show full tracebacks when errors occur",
+)
+def chat(config_path: str | None, stream_enabled: bool | None, debug: bool | None) -> None:
     """Start interactive chat (default)."""
     settings = Settings.load(config_path) if config_path else Settings()
     # Override stream setting if CLI flag is provided
     if stream_enabled is not None:
         settings.provider.stream = stream_enabled
-    asyncio.run(run_repl(settings))
+    effective_debug = settings.debug if debug is None else debug
+    asyncio.run(run_repl(settings, debug=effective_debug))
 
 
 def main() -> None:

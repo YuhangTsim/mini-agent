@@ -313,7 +313,7 @@ async def _handle_model(settings: Settings, agent: Agent, args: str) -> None:
         console.print(f"[red]Failed to switch model:[/red] {e}")
 
 
-async def run_repl(settings: Settings) -> None:
+async def run_repl(settings: Settings, debug: bool = False) -> None:
     """Main REPL loop with full agent support."""
     settings.ensure_dirs()
 
@@ -484,7 +484,11 @@ async def run_repl(settings: Settings) -> None:
             )
         except Exception as e:
             cli_callbacks.stop_live()
-            console.print(f"[red]Error:[/red] {e}")
+            if debug:
+                console.print("[red]Error:[/red] Full traceback")
+                console.print_exception(show_locals=True)
+            else:
+                console.print(f"[red]Error:[/red] {e}")
             continue
         finally:
             cli_callbacks.stop_live()
@@ -502,15 +506,22 @@ async def run_repl(settings: Settings) -> None:
     default=None,
     help="Enable/disable streaming responses (default: enabled)",
 )
+@click.option(
+    "--debug/--no-debug",
+    is_flag=True,
+    default=None,
+    help="Show full tracebacks when errors occur",
+)
 @click.pass_context
-def main(ctx, config_path, stream_enabled):
+def main(ctx, config_path, stream_enabled, debug):
     """Roo-Agent: A mode-based AI agent framework following Roo Code philosophy."""
     if ctx.invoked_subcommand is None:
         settings = Settings.load(config_path)
         # Override stream setting if CLI flag is provided
         if stream_enabled is not None:
             settings.provider.stream = stream_enabled
-        asyncio.run(run_repl(settings))
+        effective_debug = settings.debug if debug is None else debug
+        asyncio.run(run_repl(settings, debug=effective_debug))
 
 
 @main.command()
@@ -521,13 +532,20 @@ def main(ctx, config_path, stream_enabled):
     default=None,
     help="Enable/disable streaming responses (default: enabled)",
 )
-def chat(config_path, stream_enabled):
+@click.option(
+    "--debug/--no-debug",
+    is_flag=True,
+    default=None,
+    help="Show full tracebacks when errors occur",
+)
+def chat(config_path, stream_enabled, debug):
     """Start interactive chat session."""
     settings = Settings.load(config_path)
     # Override stream setting if CLI flag is provided
     if stream_enabled is not None:
         settings.provider.stream = stream_enabled
-    asyncio.run(run_repl(settings))
+    effective_debug = settings.debug if debug is None else debug
+    asyncio.run(run_repl(settings, debug=effective_debug))
 
 
 @main.command()

@@ -109,6 +109,7 @@ def _save_config(
     lines.extend([
         "max_tokens = 4096",
         "temperature = 0.0",
+        "debug = false",
         "",
         "# === Roo-Agent Settings ===",
         'default_mode = "code"  # code, plan, ask, debug, orchestrator',
@@ -349,8 +350,14 @@ def check_and_configure(config_path: str | Path | None = None) -> bool:
     default=None,
     help="Enable/disable streaming responses (default: enabled)",
 )
+@click.option(
+    "--debug/--no-debug",
+    is_flag=True,
+    default=None,
+    help="Show full tracebacks when errors occur",
+)
 @click.pass_context
-def main(ctx, use_open, config, mode, configure, stream_enabled):
+def main(ctx, use_open, config, mode, configure, stream_enabled, debug):
     """Mini-Agent: AI agent framework (default: roo-agent, use --open for open-agent).
 
     \b
@@ -359,6 +366,7 @@ def main(ctx, use_open, config, mode, configure, stream_enabled):
         mini-agent --open       # Start open-agent (multi-agent)
         mini-agent --configure  # Run configuration wizard
         mini-agent --no-stream  # Disable streaming responses
+        mini-agent --debug      # Show full error tracebacks
     """
     # If a subcommand was invoked, let it handle everything
     if ctx.invoked_subcommand is not None:
@@ -390,7 +398,8 @@ def main(ctx, use_open, config, mode, configure, stream_enabled):
         # Override stream setting if CLI flag is provided
         if stream_enabled is not None:
             settings.provider.stream = stream_enabled
-        asyncio.run(run_repl(settings))
+        effective_debug = settings.debug if debug is None else debug
+        asyncio.run(run_repl(settings, debug=effective_debug))
     else:
         # Default: roo-agent
         valid_modes = ("code", "plan", "ask", "debug", "orchestrator")
@@ -416,7 +425,8 @@ def main(ctx, use_open, config, mode, configure, stream_enabled):
         # Override stream setting if CLI flag is provided
         if stream_enabled is not None:
             settings.provider.stream = stream_enabled
-        asyncio.run(run_repl(settings))
+        effective_debug = settings.debug if debug is None else debug
+        asyncio.run(run_repl(settings, debug=effective_debug))
 
 
 @main.command()
