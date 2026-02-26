@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from typing import TYPE_CHECKING
 
 from .base import PROVIDER_MODELS, BaseProvider, ModelInfo
@@ -22,11 +23,11 @@ def create_provider(config: "ProviderConfig") -> BaseProvider:
     Any provider with a base_url or name "openai" uses the OpenAI-compatible client.
     For non-OpenAI compatible providers, an API key is required.
     """
-    api_key = config.resolve_api_key()
+    api_key = config.resolve_api_key() or os.environ.get("OPENAI_API_KEY")
 
     if config.is_openai_compatible:
         return OpenAIProvider(
-            api_key=api_key or "no-key-required",
+            api_key=api_key or "",
             model=config.model,
             base_url=config.base_url,
             max_context=config.max_context,

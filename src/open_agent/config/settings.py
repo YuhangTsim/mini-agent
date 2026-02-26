@@ -38,7 +38,7 @@ class ProviderConfig:
             "anthropic": "ANTHROPIC_API_KEY",
         }
         env_var = env_map.get(self.name, f"{self.name.upper()}_API_KEY")
-        return os.environ.get(env_var) or None
+        return os.environ.get(env_var) or os.environ.get("OPENAI_API_KEY") or None
 
 
 # Default agent configs matching the actual agent classes
