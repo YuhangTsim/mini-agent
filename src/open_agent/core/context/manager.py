@@ -118,7 +118,8 @@ class CompactionManager:
         Returns:
             CompactionResult if compaction occurred, None otherwise
         """
-        model = agent_run.token_usage.model or "gpt-4o"
+        # Get model from provider
+        model = self.provider.model
         
         # Check if we're over the limit
         if not await self.is_overflow(current_tokens, model):

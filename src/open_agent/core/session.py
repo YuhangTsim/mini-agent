@@ -82,7 +82,7 @@ class SessionProcessor:
         
         # Initialize compaction manager if enabled
         self._compaction_manager: CompactionManager | None = None
-        if compaction_settings and compaction_settings.auto:
+        if compaction_settings and compaction_settings.enabled and compaction_settings.auto:
             self._compaction_manager = CompactionManager(
                 store=store,
                 provider=provider,

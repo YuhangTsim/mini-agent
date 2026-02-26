@@ -120,7 +120,8 @@ DEFAULT_AGENTS: dict[str, dict[str, Any]] = {
 class CompactionSettings:
     """Compaction configuration for context management."""
     
-    auto: bool = True
+    enabled: bool = True  # Master switch for context management
+    auto: bool = True  # Auto-compact when context is full
     auto_prune: bool = True
     prune_minimum: int = 20000
     prune_protect: int = 40000
@@ -216,6 +217,7 @@ class Settings:
         # Compaction settings
         compaction_data = oa.get("compaction", {})
         compaction = CompactionSettings(
+            enabled=compaction_data.get("enabled", True),
             auto=compaction_data.get("auto", True),
             auto_prune=compaction_data.get("auto_prune", True),
             prune_minimum=compaction_data.get("prune_minimum", 20000),
