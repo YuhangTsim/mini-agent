@@ -38,7 +38,11 @@ class OpenAIProvider(BaseProvider):
         self._max_context = max_context
         self._max_output = max_output
         self._stream = stream
-        self._client = AsyncOpenAI(api_key=api_key, base_url=base_url)
+        normalized_key = api_key.strip() if api_key else ""
+        if base_url is None:
+            self._ensure_valid_openai_api_key(normalized_key)
+        client_api_key = normalized_key or None
+        self._client = AsyncOpenAI(api_key=client_api_key, base_url=base_url)
         self._encoding = self._get_encoding_safe(model)
 
     async def create_message(
@@ -249,6 +253,15 @@ class OpenAIProvider(BaseProvider):
         except Exception:
             # Network errors when downloading encoding files
             return None
+
+    @staticmethod
+    def _ensure_valid_openai_api_key(api_key: str) -> None:
+        """Validate that this looks like a real OpenAI API key."""
+        if len(api_key) < 32 or not api_key.startswith(("sk-", "ro-")):
+            raise ValueError(
+                "OpenAI API key appears malformed; it must start with 'sk-' or 'ro-' "
+                "and be at least 32 characters long (set OPENAI_API_KEY)."
+            )
 
     @staticmethod
     def _tool_to_openai(tool: ToolDefinition) -> dict[str, Any]:

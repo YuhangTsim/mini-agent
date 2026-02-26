@@ -59,15 +59,21 @@ app = FastAPI(title="Open Agent API", lifespan=lifespan)
 @app.post("/api/send")
 async def send_message(request: MessageRequest) -> dict:
     """Send a message and get response."""
-    service = await get_service()
     try:
+        service = await get_service()
         result = await service.send_message(
             message=request.message,
             agent_role=request.agent_role,
         )
         return {"result": result}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except ValueError as exc:
+        detail = str(exc)
+        status_code = 401 if "api key" in detail.lower() else 400
+        raise HTTPException(status_code=status_code, detail=detail)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
 
 
 @app.post("/api/approvals/{approval_id}")

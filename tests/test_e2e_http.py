@@ -81,12 +81,38 @@ class TestSendMessage:
             "message": "Say 'test' and nothing else",
             "agent_role": "explorer",
         })
-        
-        # Should return a result (might be an error if no API key)
-        assert response.status_code in [200, 500]
+
+        # Should return a result or a known config/auth error when keys are missing
+        assert response.status_code in [200, 400, 401, 500]
         if response.status_code == 200:
             data = response.json()
             assert "result" in data
+
+    async def test_send_message_invalid_api_key_returns_auth_error(self):
+        """Malformed API keys should raise an auth error instead of 500."""
+        import open_agent.api.http.server as server_module
+
+        from open_agent.api.service import AgentService
+
+        settings = Settings()
+        settings.provider.api_key = "not-a-valid-key"
+
+        server_module._service = None
+        service = AgentService(settings)
+        await service.initialize()
+        server_module._service = service
+        response = None
+        try:
+            with TestClient(app) as test_client:
+                response = test_client.post("/api/send", json={"message": "hello"})
+        finally:
+            await service.shutdown()
+            server_module._service = None
+
+        assert response is not None
+
+        assert response.status_code == 401
+        assert "api key" in response.json().get("detail", "").lower()
 
 
 class TestApprovals:
