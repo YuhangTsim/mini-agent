@@ -1,6 +1,6 @@
 """Unified database schema for both roo-agent and open-agent."""
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 4
 
 UNIFIED_SCHEMA_SQL = """
 -- Schema version tracking

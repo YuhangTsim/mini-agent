@@ -11,6 +11,13 @@ from mini_agent.persistence.schema import SCHEMA_VERSION, UNIFIED_SCHEMA_SQL
 
 # Migration scripts for schema upgrades
 MIGRATIONS: dict[int, list[str]] = {
+    # Version 1 -> 2: Add roo-agent context management columns
+    2: [
+        "ALTER TABLE task_messages ADD COLUMN truncation_parent_id TEXT",
+        "ALTER TABLE task_messages ADD COLUMN is_truncation_marker INTEGER DEFAULT 0",
+        "ALTER TABLE task_messages ADD COLUMN is_summary INTEGER DEFAULT 0",
+        "ALTER TABLE task_messages ADD COLUMN condense_parent_id TEXT",
+    ],
     # Version 2 -> 3: Add compaction fields
     3: [
         "ALTER TABLE run_messages ADD COLUMN is_compaction INTEGER DEFAULT 0",
@@ -28,6 +35,13 @@ MIGRATIONS: dict[int, list[str]] = {
         )
         """,
         "CREATE INDEX IF NOT EXISTS idx_message_parts_message ON message_parts(message_id)",
+    ],
+    # Version 3 -> 4: Fix missing columns in existing databases
+    4: [
+        "ALTER TABLE task_messages ADD COLUMN truncation_parent_id TEXT",
+        "ALTER TABLE task_messages ADD COLUMN is_truncation_marker INTEGER DEFAULT 0",
+        "ALTER TABLE task_messages ADD COLUMN is_summary INTEGER DEFAULT 0",
+        "ALTER TABLE task_messages ADD COLUMN condense_parent_id TEXT",
     ],
 }
 
@@ -78,7 +92,16 @@ class BaseStore:
             if version in MIGRATIONS:
                 for sql in MIGRATIONS[version]:
                     if sql.strip():
-                        await self._db.executescript(sql)
+                        try:
+                            if sql.strip().upper().startswith("CREATE"):
+                                # CREATE statements need executescript
+                                await self._db.executescript(sql)
+                            else:
+                                await self._db.execute(sql)
+                        except aiosqlite.OperationalError as e:
+                            # Ignore "duplicate column name" errors - column may already exist
+                            if "duplicate column name" not in str(e):
+                                raise
                 await self._db.execute(
                     "INSERT INTO schema_version (version) VALUES (?)",
                     (version,),

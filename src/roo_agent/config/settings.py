@@ -111,7 +111,16 @@ class Settings:
     def load(cls, config_path: str | Path | None = None) -> Settings:
         """Load settings from TOML config file."""
         if config_path is None:
-            config_path = Path(os.getcwd()) / DEFAULT_CONFIG_DIR / DEFAULT_CONFIG_FILE
+            # Try local config first, then fall back to global config
+            local_config = Path(os.getcwd()) / DEFAULT_CONFIG_DIR / DEFAULT_CONFIG_FILE
+            global_config = GLOBAL_CONFIG_DIR / DEFAULT_CONFIG_FILE
+            
+            if local_config.exists():
+                config_path = local_config
+            elif global_config.exists():
+                config_path = global_config
+            else:
+                config_path = local_config  # Use local path as default
 
         config_path = Path(config_path)
         raw: dict[str, Any] = {}
