@@ -145,10 +145,12 @@ class TodoWriteTool(BaseTool):
                         },
                     },
                     "required": ["id", "content", "status", "priority"],
+                    "additionalProperties": False,
                 },
             },
         },
         "required": ["todos"],
+        "additionalProperties": False,
     }
     category = "native"
     skip_approval = True  # Internal state management
@@ -242,6 +244,7 @@ class TodoReadTool(BaseTool):
     parameters = {
         "type": "object",
         "properties": {},
+        "additionalProperties": False,
         "description": "No parameters needed - reads the current session's todo list",
     }
     category = "native"
