@@ -4,9 +4,8 @@ from __future__ import annotations
 
 import asyncio
 
-import pytest
 
-from open_agent.core.background import BackgroundTask, BackgroundTaskManager
+from open_agent.core.background import BackgroundTaskManager
 from open_agent.persistence.models import AgentRun, AgentRunStatus
 
 
@@ -171,7 +170,7 @@ class TestBackgroundTaskManagerConcurrency:
         )
 
         run = make_run()
-        tasks = [
+        [
             await manager.submit(from_run=run, target_role="explorer", description=f"Task {i}")
             for i in range(4)
         ]

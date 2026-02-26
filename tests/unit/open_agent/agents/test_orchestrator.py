@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
 
 from open_agent.agents.orchestrator import OrchestratorAgent
 from open_agent.config.agents import AgentConfig

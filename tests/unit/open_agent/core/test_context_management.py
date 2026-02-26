@@ -7,14 +7,8 @@ import pytest
 from open_agent.config.settings import CompactionSettings
 from open_agent.core.context.pruning import PruningResult, PruningStrategy
 from open_agent.persistence.models import (
-    AgentRun,
-    AgentRunStatus,
     Message,
     MessagePart,
-    MessageRole,
-    Session,
-    SessionStatus,
-    ToolCall,
 )
 
 

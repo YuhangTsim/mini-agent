@@ -113,7 +113,9 @@ CREATE TABLE IF NOT EXISTS run_messages (
     role TEXT NOT NULL,
     content TEXT NOT NULL,
     token_count INTEGER DEFAULT 0,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    is_compaction INTEGER DEFAULT 0,
+    summary TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_run_messages_run ON run_messages(agent_run_id);
@@ -131,6 +133,19 @@ CREATE TABLE IF NOT EXISTS run_tool_calls (
 );
 
 CREATE INDEX IF NOT EXISTS idx_run_tool_calls_run ON run_tool_calls(agent_run_id);
+
+CREATE TABLE IF NOT EXISTS message_parts (
+    id TEXT PRIMARY KEY,
+    message_id TEXT NOT NULL REFERENCES run_messages(id),
+    part_type TEXT NOT NULL,
+    content TEXT NOT NULL,
+    tool_name TEXT,
+    tool_state TEXT,
+    compacted_at INTEGER,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_message_parts_message ON message_parts(message_id);
 
 -- === Session Todos (Open-Agent) ===
 

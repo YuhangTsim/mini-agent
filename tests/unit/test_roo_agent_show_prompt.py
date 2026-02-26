@@ -1,7 +1,6 @@
 """Tests for roo-agent-show-prompt CLI."""
 
-import pytest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 
 from mini_agent.scripts.roo_agent_show_prompt import (
     get_available_modes,

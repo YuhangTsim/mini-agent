@@ -1,5 +1,7 @@
 """Deprecated: Use agent_kernel.tools instead."""
 
+# ruff: noqa: E402
+
 import warnings
 
 warnings.warn(

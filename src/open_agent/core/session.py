@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+import inspect
 import json
 import logging
 import time
 from dataclasses import dataclass
-from typing import Any, Awaitable, Callable
+from typing import Any, AsyncIterator, Awaitable, Callable, cast
 
 from open_agent.agents.base import BaseAgent
 from open_agent.bus import Event, EventBus
@@ -23,7 +24,7 @@ from open_agent.persistence.models import (
     utcnow,
 )
 from open_agent.persistence.store import Store
-from open_agent.providers.base import BaseProvider, StreamEventType, ToolDefinition
+from open_agent.providers.base import BaseProvider, StreamEvent, StreamEventType, ToolDefinition
 from open_agent.tools.base import ToolContext, ToolRegistry, ToolResult
 from open_agent.tools.permissions import PermissionChecker
 from open_agent.hooks import HookContext, HookPoint, HookRegistry
@@ -149,20 +150,20 @@ class SessionProcessor:
             # Check and compact context if needed
             if self._compaction_manager is not None:
                 current_tokens = self._estimate_tokens(conversation)
-                result = await self._compaction_manager.check_and_compact(
+                compaction_result = await self._compaction_manager.check_and_compact(
                     session_id=agent_run.session_id,
                     agent_run=agent_run,
                     current_tokens=current_tokens,
                 )
-                if result and result.summary:
+                if compaction_result and compaction_result.summary:
                     # Add compaction summary to conversation
                     conversation.append({
                         "role": "system",
-                        "content": f"[Previous conversation summary]: {result.summary}",
+                        "content": f"[Previous conversation summary]: {compaction_result.summary}",
                     })
                     logger.debug(
                         f"Added compaction summary to conversation, "
-                        f"saved ~{result.tokens_before - result.tokens_after} tokens"
+                        f"saved ~{compaction_result.tokens_before - compaction_result.tokens_after} tokens"
                     )
 
             # Call LLM
@@ -170,13 +171,19 @@ class SessionProcessor:
             pending_tool_calls: list[dict[str, str]] = []
             usage = TokenUsage()
 
-            stream = self.provider.create_message(
-                system_prompt=system_prompt,
-                messages=conversation,
-                tools=tool_definitions if available_tools else None,
-                max_tokens=self.agent.config.max_tokens,
-                temperature=self.agent.config.temperature,
+            stream_candidate: AsyncIterator[StreamEvent] | Awaitable[AsyncIterator[StreamEvent]] = (
+                self.provider.create_message(
+                    system_prompt=system_prompt,
+                    messages=conversation,
+                    tools=tool_definitions if available_tools else None,
+                    max_tokens=self.agent.config.max_tokens,
+                    temperature=self.agent.config.temperature,
+                )
             )
+            if inspect.iscoroutine(stream_candidate):
+                stream = await stream_candidate
+            else:
+                stream = cast(AsyncIterator[StreamEvent], stream_candidate)
 
             async for event in stream:
                 if event.type == StreamEventType.TEXT_DELTA:
@@ -348,8 +355,10 @@ class SessionProcessor:
             data={"target_role": target_role, "description": description},
         )
 
+        handler = self._delegation_handler
+        assert handler is not None
         try:
-            result_text = await self._delegation_handler(
+            result_text = await handler(
                 from_run=agent_run,
                 target_role=target_role,
                 description=description,
@@ -378,8 +387,10 @@ class SessionProcessor:
                 f"Agent '{self.agent.role}' cannot delegate to '{target_role}'."
             )
 
+        handler = self._background_handler
+        assert handler is not None
         try:
-            task_id = await self._background_handler(
+            task_id = await handler(
                 from_run=agent_run,
                 target_role=target_role,
                 description=description,
@@ -620,4 +631,3 @@ class SessionProcessor:
             elif isinstance(msg, str):
                 total += len(msg) // 4
         return total
-

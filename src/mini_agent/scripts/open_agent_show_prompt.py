@@ -5,7 +5,6 @@ from __future__ import annotations
 import argparse
 import os
 import sys
-from typing import Any
 
 # Import all agent classes directly
 from open_agent.agents.orchestrator import OrchestratorAgent
@@ -73,7 +72,7 @@ def list_agents() -> None:
             first_line = desc.split('\n')[0][:80]
             print(f"    {first_line}...")
     print()
-    print(f"Use --agent <name> to see the full prompt for a specific agent.")
+    print("Use --agent <name> to see the full prompt for a specific agent.")
 
 
 def main(argv: list[str] | None = None) -> int:

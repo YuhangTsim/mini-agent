@@ -10,10 +10,18 @@ async def test_app_initialization():
     app = OpenAgentApp(settings)
     await app.initialize()
 
-    # All 6 agents registered
-    assert len(app.agent_registry.all_agents()) == 6
+    # All 7 agents registered
+    assert len(app.agent_registry.all_agents()) == 7
     roles = set(app.agent_registry.roles())
-    assert roles == {"orchestrator", "explorer", "librarian", "oracle", "designer", "fixer"}
+    assert roles == {
+        "orchestrator",
+        "compaction",
+        "explorer",
+        "librarian",
+        "oracle",
+        "designer",
+        "fixer",
+    }
 
     # All tools registered
     all_tools = app.tool_registry.all_tools()

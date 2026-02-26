@@ -2,16 +2,14 @@
 
 from __future__ import annotations
 
-import pytest
 
 from agent_kernel.providers.base import StreamEvent, StreamEventType
 from agent_kernel.tools.base import BaseTool, ToolContext, ToolRegistry, ToolResult
 from roo_agent.config.settings import ApprovalConfig, Settings
-from roo_agent.core.agent import Agent, AgentCallbacks
+from roo_agent.core.agent import Agent
 from roo_agent.persistence.models import Task, TaskStatus
 from roo_agent.persistence.store import Store
 from roo_agent.tools.agent.task_tools import AttemptCompletionTool, SwitchModeTool
-from roo_agent.tools.native import get_all_native_tools
 
 
 class EchoTool(BaseTool):

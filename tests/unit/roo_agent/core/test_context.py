@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from roo_agent.config.settings import ContextConfig, Settings
+from roo_agent.config.settings import ContextConfig
 from roo_agent.core.context import TokenManager, ContextManager
 from roo_agent.core.context.strategies import TruncationStrategy, CondensationStrategy
 from roo_agent.persistence.models import Message, MessageRole
@@ -226,7 +226,7 @@ class TestContextManager:
 @pytest.fixture
 def mock_provider():
     """Create a mock provider for testing."""
-    from conftest import MockProvider
+    from tests.helpers.mock_provider import MockProvider
 
     return MockProvider()
 

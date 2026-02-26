@@ -15,7 +15,7 @@ from open_agent.persistence.models import AgentRun, AgentRunStatus, Session
 from open_agent.persistence.store import Store
 from open_agent.prompts.builder import PromptBuilder
 from open_agent.providers.registry import ProviderRegistry
-from open_agent.tools.base import ToolRegistry
+from open_agent.tools.base import BaseTool, ToolRegistry
 from open_agent.tools.native import get_all_native_tools
 from open_agent.tools.agent import get_all_delegation_tools
 from open_agent.tools.permissions import PermissionChecker
@@ -192,7 +192,7 @@ class _SimpleAgent(BaseAgent):
 
     def get_system_prompt(self, context: dict | None = None) -> str:
         working_dir = (context or {}).get("working_directory", "")
-        tools = []  # Tools are handled separately via tool_definitions
+        tools: list[BaseTool] = []  # Tools are handled separately via tool_definitions
         return self._prompt_builder.build(
             agent_config=self.config,
             working_directory=working_dir,

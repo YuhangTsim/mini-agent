@@ -157,9 +157,6 @@ class TodoWriteTool(BaseTool):
 
     async def execute(self, params: dict[str, Any], context: ToolContext) -> ToolResult:
         from open_agent.persistence.models import TodoItem
-        from open_agent.persistence.store import Store
-        from open_agent.bus import EventBus
-        from open_agent.bus.events import Event
 
         # Get the store and event bus from context
         # We need to access these via the app context, but for now we'll use a simple approach

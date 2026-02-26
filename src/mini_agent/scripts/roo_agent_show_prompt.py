@@ -5,7 +5,6 @@ from __future__ import annotations
 import argparse
 import os
 import sys
-from typing import Any
 
 from roo_agent.core.mode import get_mode, list_modes
 from roo_agent.prompts.builder import PromptBuilder
@@ -79,7 +78,7 @@ def list_modes_func() -> None:
             first_line = desc.split('\n')[0][:80]
             print(f"    {first_line}...")
     print()
-    print(f"Use --mode <name> to see the full prompt for a specific mode.")
+    print("Use --mode <name> to see the full prompt for a specific mode.")
 
 
 def main(argv: list[str] | None = None) -> int:

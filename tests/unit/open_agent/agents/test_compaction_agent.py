@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
 
 from open_agent.agents.compaction import CompactionAgent, COMPACTION_PROMPT
 from open_agent.config.agents import AgentConfig

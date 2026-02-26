@@ -8,4 +8,4 @@ warnings.warn(
     stacklevel=2,
 )
 
-from agent_kernel.tools.native.search import *  # noqa: F401,F403
+from agent_kernel.tools.native.search import *  # noqa: E402,F401,F403

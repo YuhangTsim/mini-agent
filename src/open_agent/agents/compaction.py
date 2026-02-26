@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Any
+import inspect
+from typing import Any, AsyncIterator, Awaitable, cast
 
 from open_agent.agents.base import BaseAgent
 from open_agent.config.agents import AgentConfig
 from open_agent.persistence.models import Message
-from open_agent.providers.base import BaseProvider, StreamEventType
+from open_agent.providers.base import BaseProvider, StreamEvent, StreamEventType
 
 ROLE_DEFINITION = """\
 You are Compaction - a hidden agent for generating conversation summaries.
@@ -98,13 +99,19 @@ class CompactionAgent(BaseAgent):
         
         # Call the LLM
         summary = ""
-        stream = provider.create_message(
-            system_prompt=self.get_system_prompt(),
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=self.config.max_tokens,
-            temperature=self.config.temperature,
+        stream_candidate: AsyncIterator[StreamEvent] | Awaitable[AsyncIterator[StreamEvent]] = (
+            provider.create_message(
+                system_prompt=self.get_system_prompt(),
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=self.config.max_tokens,
+                temperature=self.config.temperature,
+            )
         )
-        
+        if inspect.iscoroutine(stream_candidate):
+            stream = await stream_candidate
+        else:
+            stream = cast(AsyncIterator[StreamEvent], stream_candidate)
+
         async for event in stream:
             if abort_signal and hasattr(abort_signal, 'is_aborted') and abort_signal.is_aborted():
                 break

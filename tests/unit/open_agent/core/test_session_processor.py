@@ -2,14 +2,12 @@
 
 from __future__ import annotations
 
-import pytest
 
 from agent_kernel.providers.base import StreamEvent, StreamEventType
-from agent_kernel.tools.base import BaseTool, ToolContext, ToolRegistry, ToolResult
+from agent_kernel.tools.base import BaseTool, ToolRegistry, ToolResult
 from open_agent.agents.base import BaseAgent
 from open_agent.config.agents import AgentConfig
 from open_agent.core.session import SessionCallbacks, SessionProcessor
-from open_agent.hooks.registry import HookRegistry
 from open_agent.persistence.models import AgentRun, AgentRunStatus
 
 

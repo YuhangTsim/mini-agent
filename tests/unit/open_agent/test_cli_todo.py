@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 from open_agent.cli.app import DelegationDisplay
 from open_agent.bus import EventBus

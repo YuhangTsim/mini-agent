@@ -264,7 +264,7 @@ async def run_repl(settings: Settings | None = None) -> None:
     history_dir = Path(app.settings.data_dir)
     history_dir.mkdir(parents=True, exist_ok=True)
     history_file = history_dir / "open_agent_repl_history"
-    session = PromptSession(history=FileHistory(str(history_file)))
+    session: PromptSession = PromptSession(history=FileHistory(str(history_file)))
 
     try:
         while True:

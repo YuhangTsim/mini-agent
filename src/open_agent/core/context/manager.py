@@ -118,8 +118,8 @@ class CompactionManager:
         Returns:
             CompactionResult if compaction occurred, None otherwise
         """
-        # Get model from provider
-        model = self.provider.model
+        # Get model from provider info
+        model = self.provider.get_model_info().model_id
         
         # Check if we're over the limit
         if not await self.is_overflow(current_tokens, model):
@@ -152,7 +152,7 @@ class CompactionManager:
                     )
         
         # Step 2: Compact if enabled and still over limit
-        if self.settings.auto_compact:
+        if self.settings.auto:
             return await self.compact(
                 session_id=session_id,
                 agent_run_id=agent_run.id,

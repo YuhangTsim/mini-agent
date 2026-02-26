@@ -35,7 +35,6 @@ class TestRooAgentToolCalling:
     @pytest.fixture
     async def store(self, settings):
         """Create and initialize store."""
-        import os
         from roo_agent.persistence.store import Store
         # Use db_path which is the actual database file path
         store = Store(settings.db_path)
@@ -101,7 +100,7 @@ When asked to read a file, use the read_file tool."""
             # Run agent
             result = await agent.run(
                 task=task,
-                user_message=f"Read the file 'test.txt' and tell me its contents.",
+                user_message="Read the file 'test.txt' and tell me its contents.",
                 conversation=conversation,
                 system_prompt=system_prompt,
             )
@@ -277,4 +276,4 @@ class TestToolCallingComparison:
         # Verify structure
         assert tool_def.name == "test_tool"
         assert "additionalProperties" in tool_def.parameters
-        assert tool_def.parameters["additionalProperties"] == False
+        assert not tool_def.parameters["additionalProperties"]

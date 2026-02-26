@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
 
 from open_agent.agents.base import BaseAgent
 from open_agent.config.agents import AgentConfig
@@ -18,7 +17,7 @@ class ConcreteAgent(BaseAgent):
         return f"You are {self.name}. Working in: {(context or {}).get('working_directory', '.')}"
 
 
-def make_agent(**kwargs) -> TestAgent:
+def make_agent(**kwargs) -> ConcreteAgent:
     config = AgentConfig(role="test_agent", **kwargs)
     return ConcreteAgent(config)
 

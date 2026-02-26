@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from agent_kernel.providers.base import StreamEvent, StreamEventType, ModelInfo
+from agent_kernel.providers.base import StreamEvent, StreamEventType
 from agent_kernel.tools.base import BaseTool, ToolContext, ToolRegistry, ToolResult
 from open_agent.bus.bus import EventBus
 from open_agent.hooks.registry import HookRegistry
@@ -89,45 +89,6 @@ def make_tool_call_events(
         ),
         StreamEvent(type=StreamEventType.MESSAGE_END, input_tokens=10, output_tokens=20),
     ]
-
-
-# ---------------------------------------------------------------------------
-# Mock provider
-# ---------------------------------------------------------------------------
-
-
-class MockProvider:
-    """Deterministic LLM provider returning pre-configured stream responses."""
-
-    def __init__(self, responses: list[list[StreamEvent]] | None = None):
-        self._responses = responses or []
-        self._call_count = 0
-        self.calls: list[dict] = []
-
-    def create_message(self, **kwargs):
-        self.calls.append(kwargs)
-        events = (
-            self._responses[self._call_count]
-            if self._call_count < len(self._responses)
-            else []
-        )
-        self._call_count += 1
-        return self._stream(events)
-
-    async def _stream(self, events: list[StreamEvent]):
-        for event in events:
-            yield event
-
-    def count_tokens(self, text: str) -> int:
-        return len(text.split())
-
-    def get_model_info(self) -> ModelInfo:
-        return ModelInfo(
-            provider="mock",
-            model_id="mock-model",
-            max_context=1000,
-            max_output=100,
-        )
 
 
 # ---------------------------------------------------------------------------

@@ -5,7 +5,7 @@ from __future__ import annotations
 from roo_agent.config.settings import ContextConfig
 from roo_agent.persistence.models import Message, MessageRole, ConversationSummary
 from roo_agent.persistence.store import Store
-from agent_kernel.providers.base import BaseProvider, ToolDefinition
+from agent_kernel.providers.base import BaseProvider
 
 
 # Summary prompt template

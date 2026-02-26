@@ -1,7 +1,6 @@
 """Tests for open-agent-show-prompt CLI."""
 
-import pytest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import patch, MagicMock
 
 from mini_agent.scripts.open_agent_show_prompt import (
     get_available_agents,
@@ -33,7 +32,6 @@ class TestGetAvailableAgents:
         mock_agent2.config.role_definition = "Explorer agent description"
 
         # Setup mock classes to return instances
-        from mini_agent.scripts.open_agent_show_prompt import AGENT_CLASSES
         AGENT_CLASSES["orchestrator"].return_value = mock_agent1
         AGENT_CLASSES["explorer"].return_value = mock_agent2
 

@@ -1,5 +1,7 @@
 """Deprecated: Use agent_kernel.providers instead."""
 
+# ruff: noqa: E402
+
 from __future__ import annotations
 
 import warnings
@@ -33,7 +35,7 @@ class ProviderRegistry:
         cache_key = f"{self._provider_config.name}:{agent_config.model}"
 
         if cache_key not in self._cache:
-            api_key = self._provider_config.resolve_api_key() or ""
+            api_key = self._provider_config.resolve_api_key()
             # Allow empty API key for OpenAI-compatible providers with custom base_url
             # (e.g., Ollama, local vLLM, etc.)
             if not api_key and not self._provider_config.base_url:
@@ -42,7 +44,7 @@ class ProviderRegistry:
                     f"Set the appropriate environment variable."
                 )
             self._cache[cache_key] = OpenAIProvider(
-                api_key=api_key,
+                api_key=api_key or "no-key-required",
                 model=agent_config.model,
                 base_url=self._provider_config.base_url,
                 provider_name=self._provider_config.name,

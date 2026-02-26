@@ -344,7 +344,7 @@ class TestSessionProcessorTodoHandling:
         from open_agent.core.session import SessionProcessor, SessionCallbacks
         from open_agent.persistence.models import AgentRun
         from open_agent.agents.orchestrator import OrchestratorAgent
-        from conftest import MockProvider
+        from tests.helpers.mock_provider import MockProvider
 
         # Create a mock provider
         provider = MockProvider()
@@ -401,7 +401,7 @@ class TestSessionProcessorTodoHandling:
         from open_agent.core.session import SessionProcessor, SessionCallbacks
         from open_agent.persistence.models import AgentRun
         from open_agent.agents.orchestrator import OrchestratorAgent
-        from conftest import MockProvider
+        from tests.helpers.mock_provider import MockProvider
 
         provider = MockProvider()
         agent = OrchestratorAgent()
@@ -433,7 +433,7 @@ class TestSessionProcessorTodoHandling:
         from open_agent.core.session import SessionProcessor, SessionCallbacks
         from open_agent.persistence.models import AgentRun
         from open_agent.agents.orchestrator import OrchestratorAgent
-        from conftest import MockProvider
+        from tests.helpers.mock_provider import MockProvider
 
         provider = MockProvider()
         agent = OrchestratorAgent()
