@@ -9,6 +9,29 @@ import aiosqlite
 from mini_agent.persistence.schema import SCHEMA_VERSION, UNIFIED_SCHEMA_SQL
 
 
+# Migration scripts for schema upgrades
+MIGRATIONS: dict[int, list[str]] = {
+    # Version 2 -> 3: Add compaction fields
+    3: [
+        "ALTER TABLE run_messages ADD COLUMN is_compaction INTEGER DEFAULT 0",
+        "ALTER TABLE run_messages ADD COLUMN summary TEXT",
+        """
+        CREATE TABLE IF NOT EXISTS message_parts (
+            id TEXT PRIMARY KEY,
+            message_id TEXT NOT NULL REFERENCES run_messages(id),
+            part_type TEXT NOT NULL,
+            content TEXT NOT NULL,
+            tool_name TEXT,
+            tool_state TEXT,
+            compacted_at INTEGER,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        """,
+        "CREATE INDEX IF NOT EXISTS idx_message_parts_message ON message_parts(message_id)",
+    ],
+}
+
+
 class BaseStore:
     """Async SQLite store with shared connection management and schema setup."""
 
@@ -21,12 +44,45 @@ class BaseStore:
         Path(self.db_path).parent.mkdir(parents=True, exist_ok=True)
         self._db = await aiosqlite.connect(self.db_path)
         self._db.row_factory = aiosqlite.Row
-        await self._db.executescript(UNIFIED_SCHEMA_SQL)
-        await self._db.execute(
-            "INSERT OR IGNORE INTO schema_version (version) VALUES (?)",
-            (SCHEMA_VERSION,),
-        )
+        
+        # Get current schema version
+        current_version = await self._get_schema_version()
+        
+        if current_version == 0:
+            # Fresh install - create full schema
+            await self._db.executescript(UNIFIED_SCHEMA_SQL)
+            await self._db.execute(
+                "INSERT INTO schema_version (version) VALUES (?)",
+                (SCHEMA_VERSION,),
+            )
+        elif current_version < SCHEMA_VERSION:
+            # Run migrations
+            await self._run_migrations(current_version, SCHEMA_VERSION)
+        
         await self._db.commit()
+
+    async def _get_schema_version(self) -> int:
+        """Get the current schema version from the database."""
+        try:
+            cursor = await self._db.execute(
+                "SELECT version FROM schema_version ORDER BY version DESC LIMIT 1"
+            )
+            row = await cursor.fetchone()
+            return row["version"] if row else 0
+        except Exception:
+            return 0
+
+    async def _run_migrations(self, from_version: int, to_version: int) -> None:
+        """Run migration scripts to upgrade schema."""
+        for version in range(from_version + 1, to_version + 1):
+            if version in MIGRATIONS:
+                for sql in MIGRATIONS[version]:
+                    if sql.strip():
+                        await self._db.executescript(sql)
+                await self._db.execute(
+                    "INSERT INTO schema_version (version) VALUES (?)",
+                    (version,),
+                )
 
     async def close(self) -> None:
         """Close the database connection."""

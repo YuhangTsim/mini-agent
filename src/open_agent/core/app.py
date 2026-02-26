@@ -117,6 +117,7 @@ class OpenAgentApp:
             delegation_handler=self.delegation_manager.delegate,
             background_handler=self.background_manager.submit,
             background_status_handler=self.background_manager.get_status,
+            compaction_settings=self.settings.compaction,
         )
 
     async def process_message(
@@ -165,6 +166,7 @@ class OpenAgentApp:
             delegation_handler=self.delegation_manager.delegate,
             background_handler=self.background_manager.submit,
             background_status_handler=self.background_manager.get_status,
+            compaction_settings=self.settings.compaction,
         )
 
         # Process
