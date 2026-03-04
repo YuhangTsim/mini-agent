@@ -112,6 +112,13 @@ class OpenAIProvider(BaseProvider):
 
             delta = chunk.choices[0].delta
 
+            # Thinking/reasoning content (OpenRouter, DeepSeek-style)
+            reasoning = getattr(delta, "reasoning_content", None) or getattr(
+                delta, "reasoning", None
+            )
+            if reasoning:
+                yield StreamEvent(type=StreamEventType.THINKING_DELTA, text=reasoning)
+
             if delta.content:
                 accumulated_text += delta.content
                 yield StreamEvent(type=StreamEventType.TEXT_DELTA, text=delta.content)
@@ -177,6 +184,13 @@ class OpenAIProvider(BaseProvider):
         # Extract content
         choice = response.choices[0]
         content = choice.message.content or ""
+
+        # Thinking/reasoning content (OpenRouter, DeepSeek-style)
+        reasoning = getattr(choice.message, "reasoning_content", None) or getattr(
+            choice.message, "reasoning", None
+        )
+        if reasoning:
+            yield StreamEvent(type=StreamEventType.THINKING_DELTA, text=reasoning)
 
         # Yield text content if present
         if content:

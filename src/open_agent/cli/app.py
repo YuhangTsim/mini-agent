@@ -29,8 +29,33 @@ class CLICallbacks:
     def __init__(self) -> None:
         self._live: Live | None = None
         self._streamed_text = ""
+        self._thinking_text = ""
+        self._in_thinking = False
+
+    async def on_thinking_delta(self, text: str) -> None:
+        self._thinking_text += text
+        self._in_thinking = True
+        if self._live is None:
+            self._live = Live(console=console, refresh_per_second=8)
+            self._live.start()
+        self._live.update(
+            Panel(Markdown(self._thinking_text), border_style="dim", title="thinking")
+        )
 
     async def on_text_delta(self, text: str) -> None:
+        if self._in_thinking:
+            # Transition from thinking to text: flush thinking display
+            self._flush_live()
+            if self._thinking_text:
+                console.print(
+                    Panel(
+                        Markdown(self._thinking_text),
+                        border_style="dim",
+                        title="thinking",
+                    )
+                )
+                self._thinking_text = ""
+            self._in_thinking = False
         self._streamed_text += text
         if self._live is None:
             self._live = Live(console=console, refresh_per_second=8)
@@ -107,6 +132,7 @@ class CLICallbacks:
             self._live = None
         if self._streamed_text:
             self._streamed_text = ""
+        self._in_thinking = False
 
 
 class DelegationDisplay:
@@ -232,6 +258,7 @@ async def run_repl(settings: Settings | None = None, debug: bool = False) -> Non
     cli_callbacks = CLICallbacks()
     app.set_callbacks(
         SessionCallbacks(
+            on_thinking_delta=cli_callbacks.on_thinking_delta,
             on_text_delta=cli_callbacks.on_text_delta,
             on_tool_call_start=cli_callbacks.on_tool_call_start,
             on_tool_call_end=cli_callbacks.on_tool_call_end,
