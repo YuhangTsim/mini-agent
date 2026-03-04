@@ -20,6 +20,7 @@ class AgentConfig(BaseModel):
     can_delegate_to: list[str] = Field(default_factory=list)
     file_permissions: list[str] = Field(default_factory=lambda: ["*"])
     role_definition: str = ""
+    thinking_budget_tokens: int | None = None
 
     def model_post_init(self, __context: object) -> None:
         if not self.name:

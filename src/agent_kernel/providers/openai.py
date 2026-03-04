@@ -53,6 +53,7 @@ class OpenAIProvider(BaseProvider):
         max_tokens: int = 4096,
         temperature: float = 0.0,
         stream: bool | None = None,
+        thinking_budget_tokens: int | None = None,
     ) -> AsyncIterator[StreamEvent]:
         # Use stored setting as default, allow override per-call
         if stream is None:
@@ -72,6 +73,9 @@ class OpenAIProvider(BaseProvider):
 
         if tools:
             kwargs["tools"] = [self._tool_to_openai(t) for t in tools]
+
+        if thinking_budget_tokens is not None:
+            kwargs["thinking"] = {"type": "enabled", "budget_tokens": thinking_budget_tokens}
 
         if stream:
             async for event in self._stream_response(api_messages, kwargs):
