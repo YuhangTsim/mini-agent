@@ -181,6 +181,7 @@ class SessionProcessor:
                     tools=tool_definitions if available_tools else None,
                     max_tokens=self.agent.config.max_tokens,
                     temperature=self.agent.config.temperature,
+                    thinking_budget_tokens=self.agent.config.thinking_budget_tokens,
                 )
             )
             if inspect.iscoroutine(stream_candidate):
@@ -242,14 +243,7 @@ class SessionProcessor:
                         agent_run.id, MessageRole.ASSISTANT, text_response
                     )
                     await self.store.add_message(assistant_msg)
-                    if thinking_response:
-                        await self.store.add_message_part(
-                            MessagePart(
-                                message_id=assistant_msg.id,
-                                part_type="thinking",
-                                content=thinking_response,
-                            )
-                        )
+                    await self._store_thinking_if_present(assistant_msg, thinking_response)
                     conversation.append({"role": "assistant", "content": text_response})
                 break
 
@@ -276,14 +270,7 @@ class SessionProcessor:
                 agent_run.id, MessageRole.ASSISTANT, assistant_content
             )
             await self.store.add_message(assistant_msg)
-            if thinking_response:
-                await self.store.add_message_part(
-                    MessagePart(
-                        message_id=assistant_msg.id,
-                        part_type="thinking",
-                        content=thinking_response,
-                    )
-                )
+            await self._store_thinking_if_present(assistant_msg, thinking_response)
 
             # Execute tool calls
             should_break = False
@@ -365,6 +352,19 @@ class SessionProcessor:
         )
 
         return final_text
+
+    async def _store_thinking_if_present(
+        self, assistant_msg: Message, thinking_response: str
+    ) -> None:
+        """Persist thinking content as a message part if present."""
+        if thinking_response:
+            await self.store.add_message_part(
+                MessagePart(
+                    message_id=assistant_msg.id,
+                    part_type="thinking",
+                    content=thinking_response,
+                )
+            )
 
     async def _handle_delegation(
         self, agent_run: AgentRun, tc: dict[str, str], params: dict

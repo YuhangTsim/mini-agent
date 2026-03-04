@@ -529,3 +529,31 @@ class TestSessionProcessorThinking:
             parts = await open_store.get_message_parts(msg.id)
             thinking_parts = [p for p in parts if p.part_type == "thinking"]
             assert len(thinking_parts) == 0
+
+    async def test_thinking_budget_not_passed_when_none(
+        self, open_store, event_bus, hook_registry
+    ):
+        """When thinking_budget_tokens is None (default), it is passed as None to provider."""
+        provider = MockProvider([make_text_events("reply")])
+        agent = make_agent()  # thinking_budget_tokens defaults to None
+        registry = ToolRegistry()
+        run = make_agent_run()
+        await open_store.create_agent_run(run)
+
+        processor = make_processor(agent, provider, registry, open_store, event_bus, hook_registry)
+        await processor.process(agent_run=run, user_message="hi")
+
+        assert provider.calls[0].get("thinking_budget_tokens") is None
+
+    async def test_thinking_budget_passed_to_provider(self, open_store, event_bus, hook_registry):
+        """When thinking_budget_tokens is set, it is forwarded to provider.create_message()."""
+        provider = MockProvider([make_thinking_then_text_events("thoughts", "answer")])
+        agent = make_agent(thinking_budget_tokens=5000)
+        registry = ToolRegistry()
+        run = make_agent_run()
+        await open_store.create_agent_run(run)
+
+        processor = make_processor(agent, provider, registry, open_store, event_bus, hook_registry)
+        await processor.process(agent_run=run, user_message="think hard")
+
+        assert provider.calls[0].get("thinking_budget_tokens") == 5000

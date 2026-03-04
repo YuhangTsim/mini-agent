@@ -83,6 +83,7 @@ class BaseProvider(ABC):
         max_tokens: int = 4096,
         temperature: float = 0.0,
         stream: bool = True,
+        thinking_budget_tokens: int | None = None,
     ) -> AsyncIterator[StreamEvent]:
         """Send messages and stream back response events.
 
@@ -93,6 +94,9 @@ class BaseProvider(ABC):
             max_tokens: Max tokens in response
             temperature: Sampling temperature
             stream: If True, yield events incrementally. If False, return complete response.
+            thinking_budget_tokens: If set, request extended thinking with this token budget.
+                Only supported by models that expose a thinking/reasoning API (e.g. Claude via
+                Anthropic-compatible endpoints). None disables extended thinking (default).
         """
         ...
 
