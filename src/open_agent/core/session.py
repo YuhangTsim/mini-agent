@@ -17,6 +17,7 @@ from open_agent.persistence.models import (
     AgentRun,
     AgentRunStatus,
     Message,
+    MessagePart,
     MessageRole,
     TodoItem,
     TokenUsage,
@@ -36,6 +37,7 @@ logger = logging.getLogger(__name__)
 class SessionCallbacks:
     """Callbacks for UI events during session processing."""
 
+    on_thinking_delta: Callable[[str], Awaitable[None]] | None = None
     on_text_delta: Callable[[str], Awaitable[None]] | None = None
     on_tool_call_start: Callable[[str, str, str], Awaitable[None]] | None = None
     on_tool_call_end: Callable[[str, str, ToolResult], Awaitable[None]] | None = None
@@ -168,6 +170,7 @@ class SessionProcessor:
 
             # Call LLM
             text_response = ""
+            thinking_response = ""
             pending_tool_calls: list[dict[str, str]] = []
             usage = TokenUsage()
 
@@ -186,7 +189,18 @@ class SessionProcessor:
                 stream = cast(AsyncIterator[StreamEvent], stream_candidate)
 
             async for event in stream:
-                if event.type == StreamEventType.TEXT_DELTA:
+                if event.type == StreamEventType.THINKING_DELTA:
+                    thinking_response += event.text
+                    if self.callbacks.on_thinking_delta:
+                        await self.callbacks.on_thinking_delta(event.text)
+                    await self.bus.publish(
+                        Event.THINKING_STREAM,
+                        session_id=agent_run.session_id,
+                        agent_role=self.agent.role,
+                        data={"token": event.text, "run_id": agent_run.id},
+                    )
+
+                elif event.type == StreamEventType.TEXT_DELTA:
                     text_response += event.text
                     if self.callbacks.on_text_delta:
                         await self.callbacks.on_text_delta(event.text)
@@ -228,6 +242,14 @@ class SessionProcessor:
                         agent_run.id, MessageRole.ASSISTANT, text_response
                     )
                     await self.store.add_message(assistant_msg)
+                    if thinking_response:
+                        await self.store.add_message_part(
+                            MessagePart(
+                                message_id=assistant_msg.id,
+                                part_type="thinking",
+                                content=thinking_response,
+                            )
+                        )
                     conversation.append({"role": "assistant", "content": text_response})
                 break
 
@@ -250,9 +272,18 @@ class SessionProcessor:
                 text_response
                 or f"[Tool calls: {', '.join(tc['name'] for tc in pending_tool_calls)}]"
             )
-            await self.store.add_message(
-                Message.from_text(agent_run.id, MessageRole.ASSISTANT, assistant_content)
+            assistant_msg = Message.from_text(
+                agent_run.id, MessageRole.ASSISTANT, assistant_content
             )
+            await self.store.add_message(assistant_msg)
+            if thinking_response:
+                await self.store.add_message_part(
+                    MessagePart(
+                        message_id=assistant_msg.id,
+                        part_type="thinking",
+                        content=thinking_response,
+                    )
+                )
 
             # Execute tool calls
             should_break = False

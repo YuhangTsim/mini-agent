@@ -364,3 +364,168 @@ class TestSessionProcessorCallbacks:
 
         assert len(usage_received) >= 1
         assert usage_received[0].input_tokens == 5
+
+
+# ---------------------------------------------------------------------------
+# Thinking helpers
+# ---------------------------------------------------------------------------
+
+
+def make_thinking_then_text_events(
+    thinking: str, text: str, input_tokens: int = 10, output_tokens: int = 5
+):
+    return [
+        StreamEvent(type=StreamEventType.THINKING_DELTA, text=thinking),
+        StreamEvent(type=StreamEventType.TEXT_DELTA, text=text),
+        StreamEvent(
+            type=StreamEventType.MESSAGE_END,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+        ),
+    ]
+
+
+def make_thinking_then_tool_events(
+    thinking: str, tool_name: str, tool_args: str, call_id: str = "tc-001"
+):
+    return [
+        StreamEvent(type=StreamEventType.THINKING_DELTA, text=thinking),
+        StreamEvent(
+            type=StreamEventType.TOOL_CALL_START, tool_call_id=call_id, tool_name=tool_name
+        ),
+        StreamEvent(
+            type=StreamEventType.TOOL_CALL_END,
+            tool_call_id=call_id,
+            tool_name=tool_name,
+            tool_args=tool_args,
+        ),
+        StreamEvent(type=StreamEventType.MESSAGE_END, input_tokens=10, output_tokens=20),
+    ]
+
+
+# ---------------------------------------------------------------------------
+# Thinking tests
+# ---------------------------------------------------------------------------
+
+
+class TestSessionProcessorThinking:
+    async def test_thinking_then_text_returns_text(self, open_store, event_bus, hook_registry):
+        """Thinking is accumulated but final result is just the text."""
+        provider = MockProvider([make_thinking_then_text_events("Let me think...", "The answer.")])
+        agent = make_agent()
+        registry = ToolRegistry()
+        run = make_agent_run()
+        await open_store.create_agent_run(run)
+
+        processor = make_processor(agent, provider, registry, open_store, event_bus, hook_registry)
+        result = await processor.process(agent_run=run, user_message="Question")
+
+        assert result == "The answer."
+
+    async def test_thinking_callback_fires(self, open_store, event_bus, hook_registry):
+        """on_thinking_delta callback receives thinking tokens."""
+        received = []
+
+        async def on_thinking(text):
+            received.append(text)
+
+        provider = MockProvider([make_thinking_then_text_events("deep thought", "answer")])
+        agent = make_agent()
+        registry = ToolRegistry()
+        run = make_agent_run()
+        await open_store.create_agent_run(run)
+
+        callbacks = SessionCallbacks(on_thinking_delta=on_thinking)
+        processor = make_processor(
+            agent, provider, registry, open_store, event_bus, hook_registry, callbacks=callbacks
+        )
+        await processor.process(agent_run=run, user_message="Think")
+
+        assert "deep thought" in received
+
+    async def test_thinking_not_in_conversation_history(
+        self, open_store, event_bus, hook_registry
+    ):
+        """Thinking content should NOT be appended to conversation sent to LLM."""
+        provider = MockProvider([make_thinking_then_text_events("secret thought", "visible")])
+        agent = make_agent()
+        registry = ToolRegistry()
+        run = make_agent_run()
+        await open_store.create_agent_run(run)
+
+        processor = make_processor(agent, provider, registry, open_store, event_bus, hook_registry)
+        await processor.process(agent_run=run, user_message="Hi")
+
+        # The conversation passed to the provider should not contain thinking
+        call_kwargs = provider.calls[0]
+        messages = call_kwargs["messages"]
+        for msg in messages:
+            content = msg.get("content", "")
+            if content:
+                assert "secret thought" not in content
+
+    async def test_thinking_stored_as_message_part(self, open_store, event_bus, hook_registry):
+        """Thinking is persisted as a MessagePart with part_type='thinking'."""
+        provider = MockProvider([make_thinking_then_text_events("reasoning here", "answer")])
+        agent = make_agent()
+        registry = ToolRegistry()
+        run = make_agent_run()
+        await open_store.create_agent_run(run)
+
+        processor = make_processor(agent, provider, registry, open_store, event_bus, hook_registry)
+        await processor.process(agent_run=run, user_message="Store thinking")
+
+        # Get the assistant message and check its parts
+        messages = await open_store.get_messages(run.id)
+        assistant_msgs = [m for m in messages if m.role.value == "assistant"]
+        assert len(assistant_msgs) >= 1
+
+        parts = await open_store.get_message_parts(assistant_msgs[0].id)
+        thinking_parts = [p for p in parts if p.part_type == "thinking"]
+        assert len(thinking_parts) == 1
+        assert thinking_parts[0].content == "reasoning here"
+
+    async def test_thinking_with_tool_calls(self, open_store, event_bus, hook_registry):
+        """Thinking before tool calls: thinking is accumulated, tool executes."""
+        provider = MockProvider([
+            make_thinking_then_tool_events("planning...", "echo", '{"message": "hi"}'),
+            make_text_events("Done."),
+        ])
+        agent = make_agent(allowed_tools=["echo"])
+        registry = ToolRegistry()
+        registry.register(EchoTool())
+        run = make_agent_run()
+        await open_store.create_agent_run(run)
+
+        processor = make_processor(agent, provider, registry, open_store, event_bus, hook_registry)
+        result = await processor.process(agent_run=run, user_message="Use tool with thinking")
+
+        assert result == "Done."
+        # Thinking should be stored as message part on the tool-call assistant message
+        messages = await open_store.get_messages(run.id)
+        assistant_msgs = [m for m in messages if m.role.value == "assistant"]
+        assert len(assistant_msgs) >= 1
+        parts = await open_store.get_message_parts(assistant_msgs[0].id)
+        thinking_parts = [p for p in parts if p.part_type == "thinking"]
+        assert len(thinking_parts) == 1
+        assert thinking_parts[0].content == "planning..."
+
+    async def test_no_thinking_backward_compat(self, open_store, event_bus, hook_registry):
+        """Without thinking events, everything works as before."""
+        provider = MockProvider([make_text_events("Just text.")])
+        agent = make_agent()
+        registry = ToolRegistry()
+        run = make_agent_run()
+        await open_store.create_agent_run(run)
+
+        processor = make_processor(agent, provider, registry, open_store, event_bus, hook_registry)
+        result = await processor.process(agent_run=run, user_message="Normal")
+
+        assert result == "Just text."
+        messages = await open_store.get_messages(run.id)
+        assistant_msgs = [m for m in messages if m.role.value == "assistant"]
+        # No thinking parts stored
+        for msg in assistant_msgs:
+            parts = await open_store.get_message_parts(msg.id)
+            thinking_parts = [p for p in parts if p.part_type == "thinking"]
+            assert len(thinking_parts) == 0

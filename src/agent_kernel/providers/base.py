@@ -9,6 +9,7 @@ from typing import Any, AsyncIterator
 
 
 class StreamEventType(str, enum.Enum):
+    THINKING_DELTA = "thinking_delta"
     TEXT_DELTA = "text_delta"
     TOOL_CALL_START = "tool_call_start"
     TOOL_CALL_DELTA = "tool_call_delta"

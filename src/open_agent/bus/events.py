@@ -20,6 +20,7 @@ class Event(str, Enum):
     AGENT_END = "agent.end"
 
     # LLM streaming
+    THINKING_STREAM = "thinking.stream"
     TOKEN_STREAM = "token.stream"
     RESPONSE_COMPLETE = "response.complete"
 
