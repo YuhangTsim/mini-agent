@@ -26,8 +26,10 @@ def create_provider(config: "ProviderConfig") -> BaseProvider:
     api_key = config.resolve_api_key() or os.environ.get("OPENAI_API_KEY")
 
     if config.is_openai_compatible:
+        if not api_key:
+            api_key = "no-key-required" if config.base_url else "no-key-configured"
         return OpenAIProvider(
-            api_key=api_key or "",
+            api_key=api_key,
             model=config.model,
             base_url=config.base_url,
             max_context=config.max_context,

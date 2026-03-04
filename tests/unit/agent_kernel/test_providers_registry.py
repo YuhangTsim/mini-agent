@@ -10,7 +10,11 @@ from roo_agent.config.settings import ProviderConfig
 
 class TestCreateProvider:
     def test_openai_provider_with_key(self):
-        config = ProviderConfig(name="openai", model="gpt-4o", api_key="test-key")
+        config = ProviderConfig(
+            name="openai",
+            model="gpt-4o",
+            api_key="sk-test-key-with-valid-prefix-and-length-1234",
+        )
         provider = create_provider(config)
         assert provider is not None
 
@@ -43,6 +47,8 @@ class TestCreateProvider:
     def test_non_openai_without_key_raises(self, monkeypatch):
         """Non-openai, non-openai-compatible provider requires an API key."""
         monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+        monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
         config = ProviderConfig(name="anthropic", model="claude-3-opus", api_key="")
         with pytest.raises(ValueError, match="No API key"):
             create_provider(config)
@@ -111,12 +117,22 @@ class TestProviderConfig:
 
     def test_stream_passed_to_provider(self):
         """Stream setting is passed to provider instance."""
-        config = ProviderConfig(name="openai", model="gpt-4o", stream=False)
+        config = ProviderConfig(
+            name="openai",
+            model="gpt-4o",
+            stream=False,
+            api_key="sk-test-key-with-valid-prefix-and-length-1234",
+        )
         provider = create_provider(config)
         assert provider._stream is False
 
     def test_stream_true_passed_to_provider(self):
         """Stream=True is passed to provider instance."""
-        config = ProviderConfig(name="openai", model="gpt-4o", stream=True)
+        config = ProviderConfig(
+            name="openai",
+            model="gpt-4o",
+            stream=True,
+            api_key="sk-test-key-with-valid-prefix-and-length-1234",
+        )
         provider = create_provider(config)
         assert provider._stream is True

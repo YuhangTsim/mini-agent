@@ -29,6 +29,8 @@ def test_settings_wiring_uses_placeholder_for_base_url_without_key(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     captured: dict[str, str] = {}
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
 
     class FakeProvider:
         def __init__(self, *, api_key: str, **kwargs: object) -> None:

@@ -11,6 +11,8 @@ from open_agent.providers import registry
 
 def test_uses_placeholder_key_for_base_url_without_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
     captured: dict[str, str] = {}
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
 
     class FakeProvider:
         def __init__(self, *, api_key: str, **kwargs: object) -> None:
@@ -45,7 +47,10 @@ def test_uses_resolved_api_key_when_present(monkeypatch: pytest.MonkeyPatch) -> 
     assert captured["api_key"] == "sk-private"
 
 
-def test_raises_when_no_api_key_and_no_base_url() -> None:
+def test_raises_when_no_api_key_and_no_base_url(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+
     provider_config = ProviderConfig(name="openai", api_key="")
     agent_config = AgentConfig(role="orchestrator", model="gpt-4o")
 

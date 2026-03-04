@@ -44,6 +44,8 @@ class ProviderRegistry:
                     f"No API key found for provider '{self._provider_config.name}'. "
                     f"Set the appropriate environment variable."
                 )
+            if not api_key and self._provider_config.base_url:
+                api_key = "no-key-required"
             self._cache[cache_key] = OpenAIProvider(
                 api_key=api_key or "",
                 model=agent_config.model,
