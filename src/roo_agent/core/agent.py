@@ -20,6 +20,7 @@ from ..persistence.models import (
 )
 from ..persistence.store import Store
 from agent_kernel.providers.base import BaseProvider, StreamEventType, ToolDefinition
+from agent_kernel.tools.permissions import PermissionChecker
 from ..tools.base import ApprovalPolicy, ToolContext, ToolRegistry, ToolResult
 from ..config.settings import Settings
 from .mode import ModeConfig, get_mode
@@ -49,12 +50,14 @@ class Agent:
         store: Store,
         settings: Settings,
         callbacks: AgentCallbacks | None = None,
+        permission_checker: PermissionChecker | None = None,
     ):
         self.provider = provider
         self.registry = registry
         self.store = store
         self.settings = settings
         self.callbacks = callbacks or AgentCallbacks()
+        self.permission_checker = permission_checker or PermissionChecker(settings.permissions)
 
     def _build_system_prompt(self, mode: ModeConfig, task: Task) -> str:
         """Build a system prompt from mode config for child tasks and mode switches.
@@ -442,21 +445,50 @@ class Agent:
                     await self._store_tool_call(task.id, tool_name, tool_args_str, result, 0)
                     return result
 
-        # Approval flow
-        policy_str = self.settings.approval.get_policy(tool_name)
-        policy = self.registry.check_approval(tool_name, policy_str)
+        # Unified permission + approval flow
+        file_path = params.get("path")
+        is_internal = tool.skip_approval or getattr(tool, "always_available", False)
+        tool_groups = tool.groups if not is_internal else None
 
-        if policy == ApprovalPolicy.DENY:
-            result = ToolResult.failure(f"Tool '{tool_name}' is denied by policy.")
+        # 1. Explicit deny by direct name (applies to ALL tools, even internal)
+        if self.permission_checker.is_denied(task.mode, tool_name, file_path):
+            result = ToolResult.failure(
+                f"Tool '{tool_name}' denied by permission rules."
+            )
             await self._store_tool_call(
                 task.id, tool_name, tool_args_str, result, 0, status="denied"
             )
             return result
 
-        if tool.skip_approval:
-            pass  # Skip approval flow entirely (e.g., ask_followup_question)
-        elif policy in (ApprovalPolicy.ALWAYS_ASK, ApprovalPolicy.ASK_ONCE):
-            if self.callbacks.on_tool_approval_request:
+        # 2. skip_approval → skip prompting (deny above still blocks)
+        if not tool.skip_approval:
+            # 3. Full policy resolution (with group matching for eligible tools)
+            policy_str = self.permission_checker.check_normalized(
+                task.mode, tool_name, file_path, tool_groups
+            )
+
+            # 4. Deny is final — no session override can change it
+            if policy_str == "deny":
+                result = ToolResult.failure(f"Tool '{tool_name}' denied by policy.")
+                await self._store_tool_call(
+                    task.id, tool_name, tool_args_str, result, 0, status="denied"
+                )
+                return result
+
+            # 5. Session overrides (only for non-deny: auto_approve, always_ask, ask_once)
+            policy = self.registry.check_approval(tool_name, policy_str)
+
+            # 6. Act on policy
+            if policy in (ApprovalPolicy.ALWAYS_ASK, ApprovalPolicy.ASK_ONCE):
+                if not self.callbacks.on_tool_approval_request:
+                    result = ToolResult.failure(
+                        f"Tool '{tool_name}' requires approval but no approval callback "
+                        f"is available."
+                    )
+                    await self._store_tool_call(
+                        task.id, tool_name, tool_args_str, result, 0, status="denied"
+                    )
+                    return result
                 response = await self.callbacks.on_tool_approval_request(
                     tool_name, tool_call_id, params
                 )
@@ -470,6 +502,7 @@ class Agent:
                     if self.callbacks.on_tool_call_end:
                         await self.callbacks.on_tool_call_end(tool_call_id, tool_name, result)
                     return result
+            # AUTO_APPROVE → fall through to execute
 
         # Execute
         context = ToolContext(

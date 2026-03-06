@@ -33,4 +33,4 @@ class PermissionRule(BaseModel):
     agent: str = "*"
     tool: str = "*"
     file: str = "*"
-    policy: str = "ask"  # allow | deny | ask
+    policy: str = "ask"  # allow|deny|ask|auto_approve|always_ask|ask_once

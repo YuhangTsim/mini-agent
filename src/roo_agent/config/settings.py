@@ -8,10 +8,21 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from agent_kernel.tools.permissions import PermissionRule
+
 
 DEFAULT_CONFIG_DIR = ".mini-agent"
 DEFAULT_CONFIG_FILE = "config.toml"
 GLOBAL_CONFIG_DIR = Path.home() / ".mini-agent"
+
+# Default tool approval policies for roo-agent (compiled into low-priority PermissionRules)
+ROO_DEFAULT_TOOL_APPROVAL: dict[str, str] = {
+    "read": "auto_approve",
+    "edit": "always_ask",
+    "command": "always_ask",
+    "attempt_completion": "auto_approve",
+    "*": "ask_once",
+}
 
 
 @dataclass
@@ -45,7 +56,7 @@ class ProviderConfig:
 
 @dataclass
 class ApprovalConfig:
-    """Per-tool approval policies."""
+    """Per-tool approval policies (legacy, kept for backward compat)."""
 
     policies: dict[str, str] = field(default_factory=lambda: {
         "read_file": "auto_approve",
@@ -79,6 +90,7 @@ class ContextConfig:
 class Settings:
     provider: ProviderConfig = field(default_factory=ProviderConfig)
     approval: ApprovalConfig = field(default_factory=ApprovalConfig)
+    permissions: list[PermissionRule] = field(default_factory=list)
     context: ContextConfig = field(default_factory=ContextConfig)
     debug: bool = False
     default_mode: str = "code"
@@ -115,7 +127,7 @@ class Settings:
             # Try local config first, then fall back to global config
             local_config = Path(os.getcwd()) / DEFAULT_CONFIG_DIR / DEFAULT_CONFIG_FILE
             global_config = GLOBAL_CONFIG_DIR / DEFAULT_CONFIG_FILE
-            
+
             if local_config.exists():
                 config_path = local_config
             elif global_config.exists():
@@ -146,11 +158,22 @@ class Settings:
             max_output=provider_data.get("max_output"),
         )
 
+        # Legacy ApprovalConfig (kept for backward compat but no longer consulted at runtime)
         approval_data = data.get("tool_approval", {})
         default_policies = ApprovalConfig().policies
         if approval_data:
             default_policies.update(approval_data)
         approval = ApprovalConfig(policies=default_policies)
+
+        # Permissions: explicit [[permissions]] rules (highest priority)
+        permissions = [PermissionRule(**p) for p in data.get("permissions", [])]
+
+        # Compile [tool_approval] into low-priority PermissionRules
+        tool_approval = data.get("tool_approval", ROO_DEFAULT_TOOL_APPROVAL)
+        for tool_pattern, policy_value in tool_approval.items():
+            permissions.append(
+                PermissionRule(agent="*", tool=tool_pattern, policy=policy_value)
+            )
 
         context_data = data.get("context", {})
         context = ContextConfig(
@@ -166,6 +189,7 @@ class Settings:
         return cls(
             provider=provider,
             approval=approval,
+            permissions=permissions,
             context=context,
             debug=data.get("debug", False),
             default_mode=data.get("default_mode", "code"),

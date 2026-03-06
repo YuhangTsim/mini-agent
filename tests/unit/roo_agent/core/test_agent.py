@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from agent_kernel.providers.base import StreamEvent, StreamEventType
 from agent_kernel.tools.base import BaseTool, ToolContext, ToolRegistry, ToolResult
+from agent_kernel.tools.permissions import PermissionRule
 from roo_agent.config.settings import ApprovalConfig, Settings
 from roo_agent.core.agent import Agent
 from roo_agent.persistence.models import Task, TaskStatus
@@ -96,6 +97,7 @@ def make_settings(tmp_path) -> Settings:
     s.working_directory = str(tmp_path)
     # Auto-approve everything so tests don't hang waiting for approval
     s.approval = ApprovalConfig(policies={"*": "auto_approve"})
+    s.permissions = [PermissionRule(agent="*", tool="*", policy="auto_approve")]
     return s
 
 
@@ -337,6 +339,7 @@ class TestAgentApprovalFlow:
         settings = make_settings(tmp_path)
         # Deny all tools
         settings.approval = ApprovalConfig(policies={"*": "deny"})
+        settings.permissions = [PermissionRule(agent="*", tool="*", policy="deny")]
         store = await make_store(tmp_path)
         registry = make_registry(EchoTool())
 

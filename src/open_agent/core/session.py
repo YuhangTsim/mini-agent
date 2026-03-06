@@ -26,6 +26,7 @@ from open_agent.persistence.models import (
 )
 from open_agent.persistence.store import Store
 from open_agent.providers.base import BaseProvider, StreamEvent, StreamEventType, ToolDefinition
+from agent_kernel.tools.base import ApprovalPolicy
 from open_agent.tools.base import ToolContext, ToolRegistry, ToolResult
 from open_agent.tools.permissions import PermissionChecker
 from open_agent.hooks import HookContext, HookPoint, HookRegistry
@@ -448,8 +449,12 @@ class SessionProcessor:
             await self._store_tool_call(agent_run.id, tool_name, tool_args_str, result, 0)
             return result
 
-        # Permission check
+        # Unified permission + approval flow
         file_path = params.get("path")
+        is_internal = tool.skip_approval or getattr(tool, "always_available", False)
+        tool_groups = tool.groups if not is_internal else None
+
+        # 1. Explicit deny by direct name (applies to ALL tools, even internal)
         if self.permission_checker.is_denied(self.agent.role, tool_name, file_path):
             result = ToolResult.failure(
                 f"Tool '{tool_name}' denied by permission rules for agent '{self.agent.role}'."
@@ -473,10 +478,37 @@ class SessionProcessor:
             )
             return result
 
-        # Approval flow
+        # 2. skip_approval → skip prompting (deny above still blocks)
         if not tool.skip_approval:
-            policy = self.permission_checker.check(self.agent.role, tool_name, file_path)
-            if policy == "ask" and self.callbacks.on_tool_approval_request:
+            # 3. Full policy resolution (with group matching for eligible tools)
+            policy_str = self.permission_checker.check_normalized(
+                self.agent.role, tool_name, file_path, tool_groups
+            )
+
+            # 4. Deny is final — no session override can change it
+            if policy_str == "deny":
+                result = ToolResult.failure(
+                    f"Tool '{tool_name}' denied by policy."
+                )
+                await self._store_tool_call(
+                    agent_run.id, tool_name, tool_args_str, result, 0, status="denied"
+                )
+                return result
+
+            # 5. Session overrides (only for non-deny: auto_approve, always_ask, ask_once)
+            policy = self.tool_registry.check_approval(tool_name, policy_str)
+
+            # 6. Act on policy
+            if policy in (ApprovalPolicy.ALWAYS_ASK, ApprovalPolicy.ASK_ONCE):
+                if not self.callbacks.on_tool_approval_request:
+                    result = ToolResult.failure(
+                        f"Tool '{tool_name}' requires approval but no approval callback "
+                        f"is available."
+                    )
+                    await self._store_tool_call(
+                        agent_run.id, tool_name, tool_args_str, result, 0, status="denied"
+                    )
+                    return result
                 await self.bus.publish(
                     Event.TOOL_APPROVAL_REQUIRED,
                     session_id=agent_run.session_id,
@@ -496,6 +528,7 @@ class SessionProcessor:
                     if self.callbacks.on_tool_call_end:
                         await self.callbacks.on_tool_call_end(tool_call_id, tool_name, result)
                     return result
+            # AUTO_APPROVE → fall through to execute
 
         # Execute tool
         await self.bus.publish(

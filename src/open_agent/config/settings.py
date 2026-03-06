@@ -22,6 +22,15 @@ DEFAULT_CONFIG_DIR = ".mini-agent"
 DEFAULT_CONFIG_FILE = "config.toml"
 GLOBAL_CONFIG_DIR = Path.home() / ".mini-agent"
 
+# Default tool approval policies for open-agent (compiled into low-priority PermissionRules)
+DEFAULT_TOOL_APPROVAL: dict[str, str] = {
+    "read": "auto_approve",
+    "edit": "always_ask",
+    "command": "always_ask",
+    "report_result": "auto_approve",
+    "*": "ask_once",
+}
+
 
 @dataclass
 class ProviderConfig:
@@ -208,8 +217,15 @@ class Settings:
             agent_data.setdefault("role", role)
             agents[role] = AgentConfig(**agent_data)
 
-        # Permissions
+        # Permissions: explicit [[permissions]] rules (highest priority)
         permissions = [PermissionRule(**p) for p in data.get("permissions", [])]
+
+        # Compile [open_agent.tool_approval] into low-priority PermissionRules
+        tool_approval = oa.get("tool_approval", DEFAULT_TOOL_APPROVAL)
+        for tool_pattern, policy_value in tool_approval.items():
+            permissions.append(
+                PermissionRule(agent="*", tool=tool_pattern, policy=policy_value)
+            )
 
         # General settings: prefer open_agent section, fall back to top-level general
         general = oa or data.get("general", {})

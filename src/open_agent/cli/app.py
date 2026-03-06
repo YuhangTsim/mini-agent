@@ -95,10 +95,14 @@ class CLICallbacks:
             )
         )
         while True:
-            response = console.input("[yellow]Allow? (y/n/always): [/yellow]").strip().lower()
-            if response in ("y", "n", "always"):
-                return response
-            console.print("[dim]Please enter y, n, or always[/dim]")
+            response = console.input("[yellow]Allow? [y/n/a(lways)]: [/yellow]").strip().lower()
+            if response in ("y", "yes"):
+                return "y"
+            elif response in ("a", "always"):
+                return "always"
+            elif response in ("n", "no"):
+                return "n"
+            console.print("[dim]Please enter y, n, or a(lways)[/dim]")
 
     async def request_user_input(self, question: str, suggestions: list[str] | None) -> str:
         self._flush_live()
