@@ -15,7 +15,7 @@ from ..persistence.models import (
 )
 from ..persistence.store import Store
 from ..prompts.builder import PromptBuilder
-from ..providers.base import BaseProvider
+from agent_kernel.providers.base import BaseProvider
 from ..providers.registry import create_provider
 from ..skills.manager import SkillsManager
 from ..tools.base import ToolRegistry, ToolResult
@@ -28,7 +28,7 @@ from .events import Event, EventBus, EventType
 class AgentService:
     """Central service layer wrapping all agent operations.
 
-    Both the CLI and HTTP API consume this service.
+    Used by frontends and integration layers.
     """
 
     def __init__(self, settings: Settings):
@@ -277,7 +277,7 @@ class AgentService:
                 },
             ))
 
-            # Block until client resolves via POST /api/approvals/{id}
+            # Block until the caller resolves the pending approval.
             return await future
 
         async def request_user_input(
@@ -298,7 +298,7 @@ class AgentService:
                 },
             ))
 
-            # Block until client resolves via POST /api/inputs/{id}
+            # Block until the caller resolves the pending user input.
             return await future
 
         async def on_message_end(usage: TokenUsage) -> None:

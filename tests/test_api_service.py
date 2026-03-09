@@ -1,4 +1,4 @@
-"""Tests for AgentService API layer."""
+"""Tests for the retained open-agent service layer."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from open_agent.api.service import AgentService
+from open_agent.core.service import AgentService
 from open_agent.bus import EventBus
 from open_agent.config import Settings
 

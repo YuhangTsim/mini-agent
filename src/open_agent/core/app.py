@@ -118,6 +118,7 @@ class OpenAgentApp:
             background_handler=self.background_manager.submit,
             background_status_handler=self.background_manager.get_status,
             compaction_settings=self.settings.compaction,
+            persist_session_transcript=False,
         )
 
     async def process_message(
@@ -167,12 +168,15 @@ class OpenAgentApp:
             background_handler=self.background_manager.submit,
             background_status_handler=self.background_manager.get_status,
             compaction_settings=self.settings.compaction,
+            persist_session_transcript=True,
         )
 
         # Process
+        conversation = await self._load_session_conversation(self._session.id)
         result = await processor.process(
             agent_run=run,
             user_message=user_message,
+            conversation=conversation,
         )
 
         return result
@@ -181,6 +185,11 @@ class OpenAgentApp:
         """Clean up resources."""
         await self.store.close()
         self.bus.clear()
+
+    async def _load_session_conversation(self, session_id: str) -> list[dict]:
+        """Load the replayable transcript for the active session."""
+        messages = await self.store.get_session_messages(session_id)
+        return [message.to_provider_dict() for message in messages]
 
 
 class _SimpleAgent(BaseAgent):

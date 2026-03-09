@@ -180,6 +180,73 @@ class Message:
 
 
 @dataclass
+class SessionMessage:
+    """Replayable session-level transcript entry for multi-turn context."""
+
+    id: str = field(default_factory=new_id)
+    session_id: str = ""
+    sequence: int = 0
+    source_run_id: str | None = None
+    agent_role: str = ""
+    role: MessageRole = MessageRole.USER
+    kind: str = "message"
+    content: str = ""
+    tool_call_id: str | None = None
+    tool_calls: list[dict[str, Any]] | None = None
+    created_at: datetime = field(default_factory=utcnow)
+
+    def to_row(self) -> dict[str, Any]:
+        return {
+            "id": self.id,
+            "session_id": self.session_id,
+            "sequence": self.sequence,
+            "source_run_id": self.source_run_id,
+            "agent_role": self.agent_role,
+            "role": self.role.value,
+            "kind": self.kind,
+            "content": self.content,
+            "tool_call_id": self.tool_call_id,
+            "tool_calls": json.dumps(self.tool_calls) if self.tool_calls is not None else None,
+            "created_at": self.created_at.isoformat(),
+        }
+
+    @classmethod
+    def from_row(cls, row: dict[str, Any]) -> SessionMessage:
+        tool_calls = row.get("tool_calls")
+        return cls(
+            id=row["id"],
+            session_id=row["session_id"],
+            sequence=row["sequence"],
+            source_run_id=row.get("source_run_id"),
+            agent_role=row.get("agent_role", ""),
+            role=MessageRole(row["role"]),
+            kind=row.get("kind", "message"),
+            content=row.get("content", ""),
+            tool_call_id=row.get("tool_call_id"),
+            tool_calls=json.loads(tool_calls) if tool_calls else None,
+            created_at=datetime.fromisoformat(row["created_at"])
+            if row.get("created_at")
+            else utcnow(),
+        )
+
+    def to_provider_dict(self) -> dict[str, Any]:
+        message: dict[str, Any] = {"role": self.role.value}
+
+        if self.role == MessageRole.TOOL:
+            message["tool_call_id"] = self.tool_call_id or ""
+            message["content"] = self.content
+            return message
+
+        if self.tool_calls:
+            message["content"] = self.content or None
+            message["tool_calls"] = self.tool_calls
+            return message
+
+        message["content"] = self.content
+        return message
+
+
+@dataclass
 class MessagePart:
     """A part of a message with specific type for fine-grained compaction."""
 

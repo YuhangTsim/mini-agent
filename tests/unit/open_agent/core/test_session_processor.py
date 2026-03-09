@@ -8,7 +8,7 @@ from agent_kernel.tools.base import BaseTool, ToolRegistry, ToolResult
 from open_agent.agents.base import BaseAgent
 from open_agent.config.agents import AgentConfig
 from open_agent.core.session import SessionCallbacks, SessionProcessor
-from open_agent.persistence.models import AgentRun, AgentRunStatus
+from open_agent.persistence.models import AgentRun, AgentRunStatus, Session
 
 
 # ---------------------------------------------------------------------------
@@ -195,6 +195,34 @@ class TestSessionProcessorSimple:
 
         assert run.status == AgentRunStatus.COMPLETED
 
+    async def test_top_level_transcript_stores_visible_messages(
+        self, open_store, event_bus, hook_registry
+    ):
+        await open_store.create_session(Session(id="sess-1", title="Transcript"))
+        provider = MockProvider([make_text_events("Visible reply.")])
+        agent = make_agent()
+        registry = ToolRegistry()
+        run = make_agent_run()
+        await open_store.create_agent_run(run)
+
+        processor = make_processor(
+            agent,
+            provider,
+            registry,
+            open_store,
+            event_bus,
+            hook_registry,
+            persist_session_transcript=True,
+        )
+        await processor.process(agent_run=run, user_message="Store me visibly")
+
+        transcript = await open_store.get_session_messages(run.session_id)
+        assert [message.role.value for message in transcript] == ["user", "assistant"]
+        assert [message.content for message in transcript] == [
+            "Store me visibly",
+            "Visible reply.",
+        ]
+
 
 class TestSessionProcessorToolCalls:
     async def test_tool_call_executed(self, open_store, event_bus, hook_registry):
@@ -232,6 +260,44 @@ class TestSessionProcessorToolCalls:
         tool_calls = await open_store.get_tool_calls(run.id)
         assert any(tc.status == "error" for tc in tool_calls)
 
+    async def test_tool_calls_are_written_to_session_transcript(
+        self, open_store, event_bus, hook_registry
+    ):
+        await open_store.create_session(Session(id="sess-1", title="Transcript"))
+        provider = MockProvider([
+            make_tool_call_events("echo", '{"message": "hello"}'),
+            make_text_events("Done with tool."),
+        ])
+        agent = make_agent(allowed_tools=["echo"])
+        registry = ToolRegistry()
+        registry.register(EchoTool())
+        run = make_agent_run()
+        await open_store.create_agent_run(run)
+
+        processor = make_processor(
+            agent,
+            provider,
+            registry,
+            open_store,
+            event_bus,
+            hook_registry,
+            persist_session_transcript=True,
+        )
+        await processor.process(agent_run=run, user_message="Use echo")
+
+        transcript = await open_store.get_session_messages(run.session_id)
+        assert [message.role.value for message in transcript] == [
+            "user",
+            "assistant",
+            "tool",
+            "assistant",
+        ]
+        assert transcript[1].tool_calls is not None
+        assert transcript[1].tool_calls[0]["function"]["name"] == "echo"
+        assert transcript[2].tool_call_id == "tc-001"
+        assert transcript[2].content == "Echo: hello"
+        assert transcript[3].content == "Done with tool."
+
     async def test_report_result_breaks_loop(self, open_store, event_bus, hook_registry):
         """report_result tool call terminates the loop immediately."""
         provider = MockProvider([
@@ -251,6 +317,36 @@ class TestSessionProcessorToolCalls:
         assert run.status == AgentRunStatus.COMPLETED
         # Provider should only have been called once
         assert provider._call_index == 1
+
+    async def test_report_result_is_normalized_in_session_transcript(
+        self, open_store, event_bus, hook_registry
+    ):
+        await open_store.create_session(Session(id="sess-1", title="Transcript"))
+        provider = MockProvider([
+            make_tool_call_events("report_result", '{"result": "final answer"}'),
+        ])
+        agent = make_agent()
+        registry = ToolRegistry()
+        run = make_agent_run()
+        await open_store.create_agent_run(run)
+
+        processor = make_processor(
+            agent,
+            provider,
+            registry,
+            open_store,
+            event_bus,
+            hook_registry,
+            persist_session_transcript=True,
+        )
+        await processor.process(agent_run=run, user_message="Report something")
+
+        transcript = await open_store.get_session_messages(run.session_id)
+        assert [message.role.value for message in transcript] == ["user", "assistant"]
+        assert [message.content for message in transcript] == [
+            "Report something",
+            "final answer",
+        ]
 
 
 class TestSessionProcessorDelegation:
@@ -321,6 +417,23 @@ class TestSessionProcessorDelegation:
 
         # No exception, but tool result should contain error
         # (the conversation continues because agent gets error result)
+
+    async def test_child_processor_does_not_write_session_transcript(
+        self, open_store, event_bus, hook_registry
+    ):
+        await open_store.create_session(Session(id="sess-1", title="Transcript"))
+        provider = MockProvider([make_text_events("child result")])
+        agent = make_agent()
+        registry = ToolRegistry()
+        child_run = make_agent_run()
+        child_run.parent_run_id = "parent-run"
+        await open_store.create_agent_run(child_run)
+
+        processor = make_processor(agent, provider, registry, open_store, event_bus, hook_registry)
+        await processor.process(agent_run=child_run, user_message="child work")
+
+        transcript = await open_store.get_session_messages(child_run.session_id)
+        assert transcript == []
 
 
 class TestSessionProcessorCallbacks:
@@ -484,6 +597,32 @@ class TestSessionProcessorThinking:
         thinking_parts = [p for p in parts if p.part_type == "thinking"]
         assert len(thinking_parts) == 1
         assert thinking_parts[0].content == "reasoning here"
+
+    async def test_thinking_not_written_to_session_transcript(
+        self, open_store, event_bus, hook_registry
+    ):
+        await open_store.create_session(Session(id="sess-1", title="Transcript"))
+        provider = MockProvider([make_thinking_then_text_events("secret thought", "visible")])
+        agent = make_agent()
+        registry = ToolRegistry()
+        run = make_agent_run()
+        await open_store.create_agent_run(run)
+
+        processor = make_processor(
+            agent,
+            provider,
+            registry,
+            open_store,
+            event_bus,
+            hook_registry,
+            persist_session_transcript=True,
+        )
+        await processor.process(agent_run=run, user_message="Hi")
+
+        transcript = await open_store.get_session_messages(run.session_id)
+        assert [message.content for message in transcript] == ["Hi", "visible"]
+        for message in transcript:
+            assert "secret thought" not in message.content
 
     async def test_thinking_with_tool_calls(self, open_store, event_bus, hook_registry):
         """Thinking before tool calls: thinking is accumulated, tool executes."""

@@ -19,6 +19,7 @@ from open_agent.persistence.models import (
     Message,
     MessagePart,
     MessageRole,
+    SessionMessage,
     TodoItem,
     TokenUsage,
     ToolCall,
@@ -70,6 +71,7 @@ class SessionProcessor:
         background_handler: Callable[..., Awaitable[str]] | None = None,
         background_status_handler: Callable[..., Awaitable[str]] | None = None,
         compaction_settings: CompactionSettings | None = None,
+        persist_session_transcript: bool = False,
     ) -> None:
         self.agent = agent
         self.provider = provider
@@ -83,6 +85,7 @@ class SessionProcessor:
         self._delegation_handler = delegation_handler
         self._background_handler = background_handler
         self._background_status_handler = background_status_handler
+        self._persist_session_transcript = persist_session_transcript
         
         # Initialize compaction manager if enabled
         self._compaction_manager: CompactionManager | None = None
@@ -127,6 +130,11 @@ class SessionProcessor:
         conversation.append({"role": "user", "content": user_message})
         user_msg = Message.from_text(agent_run.id, MessageRole.USER, user_message)
         await self.store.add_message(user_msg)
+        await self._store_session_message(
+            agent_run=agent_run,
+            role=MessageRole.USER,
+            content=user_message,
+        )
 
         await self.bus.publish(
             Event.AGENT_START,
@@ -245,6 +253,11 @@ class SessionProcessor:
                     )
                     await self.store.add_message(assistant_msg)
                     await self._store_thinking_if_present(assistant_msg, thinking_response)
+                    await self._store_session_message(
+                        agent_run=agent_run,
+                        role=MessageRole.ASSISTANT,
+                        content=text_response,
+                    )
                     conversation.append({"role": "assistant", "content": text_response})
                 break
 
@@ -262,6 +275,17 @@ class SessionProcessor:
                 ],
             }
             conversation.append(assistant_message)
+
+            is_report_result_only = (
+                len(pending_tool_calls) == 1 and pending_tool_calls[0]["name"] == "report_result"
+            )
+            if not is_report_result_only:
+                await self._store_session_message(
+                    agent_run=agent_run,
+                    role=MessageRole.ASSISTANT,
+                    content=text_response,
+                    tool_calls=assistant_message["tool_calls"],
+                )
 
             assistant_content = (
                 text_response
@@ -307,6 +331,11 @@ class SessionProcessor:
                             "content": result.output,
                         }
                     )
+                    await self._store_session_message(
+                        agent_run=agent_run,
+                        role=MessageRole.ASSISTANT,
+                        content=result_text,
+                    )
                     should_break = True
                     break
                 elif tool_name == "todo_write":
@@ -323,6 +352,12 @@ class SessionProcessor:
                         "tool_call_id": tc["id"],
                         "content": tool_content,
                     }
+                )
+                await self._store_session_message(
+                    agent_run=agent_run,
+                    role=MessageRole.TOOL,
+                    content=tool_content,
+                    tool_call_id=tc["id"],
                 )
 
             if self.callbacks.on_message_end:
@@ -366,6 +401,33 @@ class SessionProcessor:
                     content=thinking_response,
                 )
             )
+
+    async def _store_session_message(
+        self,
+        agent_run: AgentRun,
+        role: MessageRole,
+        content: str | None,
+        tool_call_id: str | None = None,
+        tool_calls: list[dict[str, Any]] | None = None,
+        kind: str = "message",
+    ) -> None:
+        """Persist a replayable transcript event for top-level user-visible history."""
+        if not self._persist_session_transcript:
+            return
+
+        sequence = await self.store.get_next_session_sequence(agent_run.session_id)
+        session_message = SessionMessage(
+            session_id=agent_run.session_id,
+            sequence=sequence,
+            source_run_id=agent_run.id,
+            agent_role=self.agent.role,
+            role=role,
+            kind=kind,
+            content=content or "",
+            tool_call_id=tool_call_id,
+            tool_calls=tool_calls,
+        )
+        await self.store.add_session_message(session_message)
 
     async def _handle_delegation(
         self, agent_run: AgentRun, tc: dict[str, str], params: dict

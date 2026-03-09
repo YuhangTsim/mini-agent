@@ -10,6 +10,8 @@ import tempfile
 
 import pytest
 
+from tests.helpers.e2e_config import make_open_agent_settings, make_roo_settings
+
 # Skip all tests if no API key
 pytestmark = pytest.mark.skipif(
     not os.environ.get("OPENAI_API_KEY") and not os.environ.get("OPENROUTER_API_KEY"),
@@ -21,10 +23,9 @@ class TestRooAgentToolCalling:
     """Test roo-agent tool calling with real LLM."""
     
     @pytest.fixture
-    def settings(self):
-        """Create settings with API key."""
-        from roo_agent.config.settings import Settings
-        return Settings.load()
+    def settings(self, tmp_path):
+        """Create settings isolated from user config."""
+        return make_roo_settings(tmp_path)
     
     @pytest.fixture
     def provider(self, settings):
@@ -167,10 +168,9 @@ class TestOpenAgentToolCalling:
     """Test open-agent tool calling with real LLM."""
     
     @pytest.fixture
-    def settings(self):
-        """Create settings."""
-        from open_agent.config import Settings
-        return Settings.load()
+    def settings(self, tmp_path):
+        """Create settings isolated from user config."""
+        return make_open_agent_settings(tmp_path)
     
     @pytest.fixture
     async def app(self, settings):

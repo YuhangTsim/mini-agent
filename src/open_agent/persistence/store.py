@@ -3,7 +3,15 @@
 from __future__ import annotations
 
 from mini_agent.persistence.base import BaseStore
-from open_agent.persistence.models import AgentRun, Message, MessagePart, Session, TodoItem, ToolCall
+from open_agent.persistence.models import (
+    AgentRun,
+    Message,
+    MessagePart,
+    Session,
+    SessionMessage,
+    TodoItem,
+    ToolCall,
+)
 
 
 class Store(BaseStore):
@@ -98,6 +106,27 @@ class Store(BaseStore):
         )
         rows = await cursor.fetchall()
         return [Message.from_row(dict(r)) for r in rows]
+
+    async def add_session_message(self, message: SessionMessage) -> SessionMessage:
+        await self._insert("session_messages", message.to_row())
+        return message
+
+    async def get_session_messages(self, session_id: str) -> list[SessionMessage]:
+        cursor = await self.db.execute(
+            "SELECT * FROM session_messages WHERE session_id = ? ORDER BY sequence ASC",
+            (session_id,),
+        )
+        rows = await cursor.fetchall()
+        return [SessionMessage.from_row(dict(r)) for r in rows]
+
+    async def get_next_session_sequence(self, session_id: str) -> int:
+        cursor = await self.db.execute(
+            "SELECT COALESCE(MAX(sequence), 0) + 1 AS next_sequence "
+            "FROM session_messages WHERE session_id = ?",
+            (session_id,),
+        )
+        row = await cursor.fetchone()
+        return int(row["next_sequence"]) if row else 1
 
     # --- Tool Calls ---
 

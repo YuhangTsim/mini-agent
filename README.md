@@ -8,7 +8,6 @@ A dual-framework AI agent platform featuring **roo-agent** (mode-based, Roo Code
 # Install with uv
 uv venv && source .venv/bin/activate
 uv pip install -e ".[dev]"          # core + dev tools
-uv pip install -e ".[dev,api]"      # with HTTP API support
 
 # Interactive configuration wizard (first time setup)
 mini-agent --configure
@@ -185,7 +184,7 @@ Best for complex workflows requiring multiple specialists working together.
 - **Skills system** — Markdown skill files with YAML frontmatter, mode-scoped, auto-discovered
 - **Configurable approval** — per-tool approval policies (auto_approve, always_ask, ask_once, deny)
 - **Streaming responses** — real-time token streaming with rich terminal formatting
-- **HTTP API + Web UI** — FastAPI server with SSE streaming and React frontend
+- **TUI-first workflow** — interactive terminal interfaces for both frameworks
 - **JSON export** — export tasks with full conversation history and token usage
 - **Provider-agnostic** — OpenAI, OpenRouter, Ollama, and any OpenAI-compatible API
 
@@ -206,7 +205,6 @@ src/
 │   ├── skills/          # Skills system
 │   ├── prompts/         # Sectional prompt system
 │   ├── persistence/     # SQLite persistence
-│   ├── api/             # FastAPI HTTP server
 │   └── config/          # TOML config loading
 └── open_agent/          # Multi-agent event-driven framework (worktree)
     ├── cli/             # Open-agent CLI
@@ -269,65 +267,40 @@ attempt_completion = "auto_approve"
 
 ## Web UI
 
-```bash
-# Terminal 1: Start the backend API server
-mini-agent serve --port 8080
-
-# Terminal 2: Start the frontend dev server
-cd ui/
-npm install && npm run dev
-# Opens http://localhost:5173
-```
-
-See [ui/README.md](ui/README.md) for full web UI documentation.
-
-## HTTP API
-
-Start the server:
-```bash
-mini-agent serve --port 8080
-```
-
-### Endpoints
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/health` | Health check |
-| POST | `/api/send` | Send message |
-| GET | `/api/stream` | SSE event stream |
-| POST | `/api/approvals/{id}` | Resolve tool approval |
-| POST | `/api/inputs/{id}` | Resolve user input |
-
-### Example
-
-```bash
-# Send a message
-curl -X POST http://localhost:8080/api/send \
-  -H "Content-Type: application/json" \
-  -d '{"message": "Explore the codebase", "agent_role": "explorer"}'
-
-# Stream events
-curl http://localhost:8080/api/stream
-```
+The repository currently ships terminal-first interfaces only. A new Web UI/backend
+can be built later against the retained core/service layers.
 
 ## Testing
 
 ```bash
+# Export provider credentials for subprocesses
+set -a
+source .env
+set +a
+
 # Run all tests
-pytest
+.venv/bin/pytest
 
 # Run with verbose output
-pytest -v
+.venv/bin/pytest -v
 
 # Run specific test file
-pytest tests/test_bus.py -v
+.venv/bin/pytest tests/test_bus.py -v
 
 # Run E2E tests (requires API key)
-pytest tests/test_e2e_provider.py -v
+.venv/bin/pytest tests/test_e2e_provider.py -v
+
+# Run tool-calling E2E tests
+.venv/bin/pytest tests/test_e2e_tool_calling.py -v
 
 # Run with coverage
-pytest --cov=open_agent --cov-report=html
+.venv/bin/pytest --cov=open_agent --cov-report=html
 ```
+
+Notes:
+- `source .env` alone is not enough if the file uses plain shell assignments. Use `set -a` / `set +a` so `pytest` subprocesses receive `OPENAI_API_KEY` or `OPENROUTER_API_KEY`.
+- E2E tests use test-local config derived from environment variables and temp working directories. They do not read `~/.mini-agent/config.toml`, so personal configs such as local proxies do not affect test results.
+- Real-provider E2E tests require outbound network access.
 
 ### Test Structure
 
@@ -339,7 +312,6 @@ pytest --cov=open_agent --cov-report=html
 | `test_persistence.py` | SQLite storage |
 | `test_tools_native.py` | File ops, search, commands |
 | `test_e2e_cli.py` | CLI E2E tests |
-| `test_e2e_http.py` | HTTP API E2E tests |
 | `test_e2e_provider.py` | LLM provider E2E |
 
 ## Development
@@ -347,14 +319,14 @@ pytest --cov=open_agent --cov-report=html
 ```bash
 # Setup
 uv venv && source .venv/bin/activate
-uv pip install -e ".[dev,api]"
+uv pip install -e ".[dev]"
 
 # Lint & format
 ruff check src --fix
 ruff format src
 
 # Run tests
-pytest -x
+.venv/bin/pytest -x
 ```
 
 ## Worktrees

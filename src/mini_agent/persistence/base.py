@@ -43,6 +43,28 @@ MIGRATIONS: dict[int, list[str]] = {
         "ALTER TABLE task_messages ADD COLUMN is_summary INTEGER DEFAULT 0",
         "ALTER TABLE task_messages ADD COLUMN condense_parent_id TEXT",
     ],
+    # Version 4 -> 5: Add open-agent session transcript table
+    5: [
+        """
+        CREATE TABLE IF NOT EXISTS session_messages (
+            id TEXT PRIMARY KEY,
+            session_id TEXT NOT NULL REFERENCES sessions(id),
+            sequence INTEGER NOT NULL,
+            source_run_id TEXT REFERENCES agent_runs(id),
+            agent_role TEXT NOT NULL,
+            role TEXT NOT NULL,
+            kind TEXT NOT NULL,
+            content TEXT NOT NULL,
+            tool_call_id TEXT,
+            tool_calls TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        """,
+        """
+        CREATE INDEX IF NOT EXISTS idx_session_messages_session_seq
+        ON session_messages(session_id, sequence)
+        """,
+    ],
 }
 
 

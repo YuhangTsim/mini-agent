@@ -15,8 +15,8 @@ from open_agent.tools.base import ToolResult
 class AgentService:
     """High-level service layer wrapping OpenAgentApp.
 
-    Used by both CLI and HTTP API. Manages event-based communication
-    with frontends via the EventBus.
+    Used by frontends and integration layers. Manages event-based communication
+    with callers via the EventBus.
     """
 
     def __init__(self, settings: Settings | None = None) -> None:
@@ -65,13 +65,13 @@ class AgentService:
         return result
 
     async def resolve_approval(self, approval_id: str, response: str) -> None:
-        """Resolve a pending tool approval (from HTTP API)."""
+        """Resolve a pending tool approval."""
         future = self._pending_approvals.pop(approval_id, None)
         if future and not future.done():
             future.set_result(response)
 
     async def resolve_input(self, input_id: str, response: str) -> None:
-        """Resolve a pending user input request (from HTTP API)."""
+        """Resolve a pending user input request."""
         future = self._pending_inputs.pop(input_id, None)
         if future and not future.done():
             future.set_result(response)

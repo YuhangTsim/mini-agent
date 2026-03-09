@@ -32,3 +32,28 @@ async def test_message_parts_table_and_index_exist(open_store):
     cursor = await open_store.db.execute("PRAGMA index_list('message_parts')")
     indexes = {row["name"] for row in await cursor.fetchall()}
     assert "idx_message_parts_message" in indexes
+
+
+async def test_session_messages_table_and_index_exist(open_store):
+    cursor = await open_store.db.execute("PRAGMA table_info(session_messages)")
+    rows = await cursor.fetchall()
+    column_names = {row["name"] for row in rows}
+
+    expected_columns = {
+        "id",
+        "session_id",
+        "sequence",
+        "source_run_id",
+        "agent_role",
+        "role",
+        "kind",
+        "content",
+        "tool_call_id",
+        "tool_calls",
+        "created_at",
+    }
+    assert expected_columns.issubset(column_names)
+
+    cursor = await open_store.db.execute("PRAGMA index_list('session_messages')")
+    indexes = {row["name"] for row in await cursor.fetchall()}
+    assert "idx_session_messages_session_seq" in indexes

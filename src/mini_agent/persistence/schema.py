@@ -1,6 +1,6 @@
 """Unified database schema for both roo-agent and open-agent."""
 
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 
 UNIFIED_SCHEMA_SQL = """
 -- Schema version tracking
@@ -119,6 +119,23 @@ CREATE TABLE IF NOT EXISTS run_messages (
 );
 
 CREATE INDEX IF NOT EXISTS idx_run_messages_run ON run_messages(agent_run_id);
+
+CREATE TABLE IF NOT EXISTS session_messages (
+    id TEXT PRIMARY KEY,
+    session_id TEXT NOT NULL REFERENCES sessions(id),
+    sequence INTEGER NOT NULL,
+    source_run_id TEXT REFERENCES agent_runs(id),
+    agent_role TEXT NOT NULL,
+    role TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    content TEXT NOT NULL,
+    tool_call_id TEXT,
+    tool_calls TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_session_messages_session_seq
+    ON session_messages(session_id, sequence);
 
 CREATE TABLE IF NOT EXISTS run_tool_calls (
     id TEXT PRIMARY KEY,

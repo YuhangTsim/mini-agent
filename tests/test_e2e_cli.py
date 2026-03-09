@@ -4,9 +4,12 @@ from __future__ import annotations
 
 import os
 import tempfile
+from pathlib import Path
 
 import pytest
 from click.testing import CliRunner
+
+from tests.helpers.e2e_config import write_open_agent_config
 
 
 class TestCLI:
@@ -63,8 +66,11 @@ class TestCLI:
         from open_agent.cli.app import cli
         
         with runner.isolated_filesystem(temp_dir=temp_dir):
+            config_file = Path("config.toml")
+            write_open_agent_config(config_file, Path.cwd())
+
             # Simulate user input and exit - just test the CLI runs
-            result = runner.invoke(cli, ["chat"], input="/exit\n")
+            result = runner.invoke(cli, ["chat", "--config", str(config_file)], input="/exit\n")
             
             # CLI should start and exit cleanly
             assert result.exit_code in [0, 1]  # 0 for clean exit, 1 for early exit

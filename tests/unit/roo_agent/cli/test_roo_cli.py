@@ -60,11 +60,6 @@ class TestClickCommands:
         assert result.exit_code == 0
         assert "TASK_ID" in result.output
 
-    def test_serve_help(self):
-        result = CliRunner().invoke(main, ["serve", "--help"])
-        assert result.exit_code == 0
-        assert "port" in result.output.lower()
-
     def test_main_no_subcommand_calls_repl(self):
         with patch("roo_agent.cli.app.asyncio.run") as mock_run, \
              patch("roo_agent.cli.app.Settings.load", return_value=MagicMock()):
@@ -82,16 +77,6 @@ class TestClickCommands:
              patch("roo_agent.cli.app.Settings.load", return_value=MagicMock()):
             CliRunner().invoke(main, ["export", "abc123"])
         mock_run.assert_called_once()
-
-    def test_serve_calls_asyncio_run(self):
-        mock_server_mod = MagicMock()
-        mock_server_mod.run_server = AsyncMock()
-        with patch.dict("sys.modules", {"roo_agent.api.http.server": mock_server_mod}), \
-             patch("roo_agent.cli.app.asyncio.run") as mock_run, \
-             patch("roo_agent.cli.app.Settings.load", return_value=MagicMock()):
-            CliRunner().invoke(main, ["serve"])
-        mock_run.assert_called_once()
-
 
 # ---------------------------------------------------------------------------
 # CLICallbacks — text streaming
