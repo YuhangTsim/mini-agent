@@ -27,6 +27,10 @@ from open_agent.persistence.models import (
 )
 from open_agent.persistence.store import Store
 from open_agent.providers.base import BaseProvider, StreamEvent, StreamEventType, ToolDefinition
+from agent_kernel.tool_calling import (
+    DEFAULT_INVALID_TOOL_TURN_LIMIT,
+    build_non_convergence_message,
+)
 from agent_kernel.tools.base import ApprovalPolicy
 from open_agent.tools.base import ToolContext, ToolRegistry, ToolResult
 from open_agent.tools.permissions import PermissionChecker
@@ -144,6 +148,8 @@ class SessionProcessor:
         )
 
         max_iterations = self.agent.config.max_iterations
+        invalid_tool_turn_limit = DEFAULT_INVALID_TOOL_TURN_LIMIT
+        consecutive_invalid_tool_turns = 0
         final_text = ""
 
         for iteration in range(max_iterations):
@@ -299,31 +305,14 @@ class SessionProcessor:
 
             # Execute tool calls
             should_break = False
+            turn_results: list[ToolResult] = []
             for tc in pending_tool_calls:
-                tool_name = tc["name"]
-                tool_args_str = tc["args"]
+                result = await self._execute_pending_tool_call(agent_run, tc)
+                turn_results.append(result)
 
-                try:
-                    params = json.loads(tool_args_str) if tool_args_str else {}
-                except json.JSONDecodeError:
-                    params = {}
-
-                # Handle special delegation tools
-                if tool_name == "delegate_task" and self._delegation_handler:
-                    result = await self._handle_delegation(agent_run, tc, params)
-                elif tool_name == "delegate_background" and self._background_handler:
-                    result = await self._handle_background(agent_run, tc, params)
-                elif tool_name == "check_background_task" and self._background_status_handler:
-                    task_id = params.get("task_id", "")
-                    status_text = await self._background_status_handler(task_id)
-                    result = ToolResult.success(status_text)
-                elif tool_name == "report_result":
-                    result_text = params.get("result", "")
-                    agent_run.result = result_text
-                    agent_run.status = AgentRunStatus.COMPLETED
-                    agent_run.completed_at = utcnow()
+                if tc["name"] == "report_result" and not result.is_error:
+                    result_text = result.output.removeprefix("Result reported: ")
                     final_text = result_text
-                    result = ToolResult.success(f"Result reported: {result_text}")
                     conversation.append(
                         {
                             "role": "tool",
@@ -338,12 +327,6 @@ class SessionProcessor:
                     )
                     should_break = True
                     break
-                elif tool_name == "todo_write":
-                    result = await self._handle_todo_write(agent_run, tc, params)
-                elif tool_name == "todo_read":
-                    result = await self._handle_todo_read(agent_run, tc, params)
-                else:
-                    result = await self._execute_tool(agent_run, tc, params)
 
                 tool_content = result.output if not result.is_error else f"Error: {result.error}"
                 conversation.append(
@@ -362,6 +345,30 @@ class SessionProcessor:
 
             if self.callbacks.on_message_end:
                 await self.callbacks.on_message_end(usage)
+
+            if turn_results and all(result.is_error for result in turn_results):
+                consecutive_invalid_tool_turns += 1
+            else:
+                consecutive_invalid_tool_turns = 0
+
+            if consecutive_invalid_tool_turns >= invalid_tool_turn_limit:
+                final_text = build_non_convergence_message(
+                    invalid_tool_turns=consecutive_invalid_tool_turns,
+                    invalid_tool_turn_limit=invalid_tool_turn_limit,
+                )
+                agent_run.status = AgentRunStatus.FAILED
+                agent_run.result = final_text
+                agent_run.completed_at = utcnow()
+                assistant_msg = Message.from_text(agent_run.id, MessageRole.ASSISTANT, final_text)
+                await self.store.add_message(assistant_msg)
+                await self._store_session_message(
+                    agent_run=agent_run,
+                    role=MessageRole.ASSISTANT,
+                    content=final_text,
+                )
+                if self.callbacks.on_text_delta:
+                    await self.callbacks.on_text_delta(final_text)
+                break
 
             if should_break:
                 break
@@ -388,6 +395,42 @@ class SessionProcessor:
         )
 
         return final_text
+
+    async def _execute_pending_tool_call(
+        self,
+        agent_run: AgentRun,
+        tc: dict[str, str],
+    ) -> ToolResult:
+        """Execute a tool call after parsing model-provided JSON arguments."""
+        tool_name = tc["name"]
+        tool_args_str = tc["args"]
+
+        try:
+            params = json.loads(tool_args_str) if tool_args_str else {}
+        except json.JSONDecodeError:
+            result = ToolResult.failure(f"Invalid JSON arguments: {tool_args_str}")
+            await self._store_tool_call(agent_run.id, tool_name, tool_args_str, result, 0)
+            return result
+
+        if tool_name == "delegate_task" and self._delegation_handler:
+            return await self._handle_delegation(agent_run, tc, params)
+        if tool_name == "delegate_background" and self._background_handler:
+            return await self._handle_background(agent_run, tc, params)
+        if tool_name == "check_background_task" and self._background_status_handler:
+            task_id = params.get("task_id", "")
+            status_text = await self._background_status_handler(task_id)
+            return ToolResult.success(status_text)
+        if tool_name == "report_result":
+            result_text = params.get("result", "")
+            agent_run.result = result_text
+            agent_run.status = AgentRunStatus.COMPLETED
+            agent_run.completed_at = utcnow()
+            return ToolResult.success(f"Result reported: {result_text}")
+        if tool_name == "todo_write":
+            return await self._handle_todo_write(agent_run, tc, params)
+        if tool_name == "todo_read":
+            return await self._handle_todo_read(agent_run, tc, params)
+        return await self._execute_tool(agent_run, tc, params)
 
     async def _store_thinking_if_present(
         self, assistant_msg: Message, thinking_response: str

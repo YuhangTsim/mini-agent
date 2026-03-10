@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 
+from agent_kernel.tool_calling import TOOL_CALLING_FAILURE_PREFIX
 from agent_kernel.providers.base import StreamEvent, StreamEventType
 from agent_kernel.tools.base import BaseTool, ToolRegistry, ToolResult
 from open_agent.agents.base import BaseAgent
@@ -259,6 +260,48 @@ class TestSessionProcessorToolCalls:
         assert result == "Handled error."
         tool_calls = await open_store.get_tool_calls(run.id)
         assert any(tc.status == "error" for tc in tool_calls)
+
+    async def test_recovery_after_invalid_tool_turn(self, open_store, event_bus, hook_registry):
+        provider = MockProvider([
+            make_tool_call_events("echo", "NOT VALID JSON", call_id="tc-bad"),
+            make_tool_call_events("echo", '{"message": "fixed"}', call_id="tc-good"),
+            make_text_events("Recovered after retry."),
+        ])
+        agent = make_agent(allowed_tools=["echo"])
+        registry = ToolRegistry()
+        registry.register(EchoTool())
+        run = make_agent_run()
+        await open_store.create_agent_run(run)
+
+        processor = make_processor(agent, provider, registry, open_store, event_bus, hook_registry)
+        result = await processor.process(agent_run=run, user_message="Recover")
+
+        assert result == "Recovered after retry."
+        assert run.status == AgentRunStatus.COMPLETED
+        tool_calls = await open_store.get_tool_calls(run.id)
+        assert [tc.status for tc in tool_calls] == ["error", "success"]
+
+    async def test_two_invalid_tool_turns_return_structured_failure(
+        self, open_store, event_bus, hook_registry
+    ):
+        provider = MockProvider([
+            make_tool_call_events("echo", "NOT VALID JSON", call_id="tc-001"),
+            make_tool_call_events("echo", "STILL BAD JSON", call_id="tc-002"),
+            make_text_events("Should not be reached."),
+        ])
+        agent = make_agent(allowed_tools=["echo"])
+        registry = ToolRegistry()
+        registry.register(EchoTool())
+        run = make_agent_run()
+        await open_store.create_agent_run(run)
+
+        processor = make_processor(agent, provider, registry, open_store, event_bus, hook_registry)
+        result = await processor.process(agent_run=run, user_message="Keep failing")
+
+        assert result.startswith(TOOL_CALLING_FAILURE_PREFIX)
+        assert run.status == AgentRunStatus.FAILED
+        assert "invalid_tool_turns" in result
+        assert provider._call_index == 2
 
     async def test_tool_calls_are_written_to_session_transcript(
         self, open_store, event_bus, hook_registry

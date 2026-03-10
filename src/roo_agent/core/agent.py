@@ -9,6 +9,11 @@ from typing import Any, Callable, Awaitable
 
 import platform
 
+from agent_kernel.tool_calling import (
+    DEFAULT_INVALID_TOOL_TURN_LIMIT,
+    build_non_convergence_message,
+)
+
 from ..persistence.models import (
     Message,
     MessageRole,
@@ -202,6 +207,8 @@ class Agent:
         max_iterations = 25  # Safety limit for tool call loops
         todo_injection_count = 0
         max_todo_injections = 15  # Subset of max_iterations
+        invalid_tool_turn_limit = DEFAULT_INVALID_TOOL_TURN_LIMIT
+        consecutive_invalid_tool_turns = 0
         final_text = ""
         loop_completed_normally = True
 
@@ -315,6 +322,29 @@ class Agent:
                     }
                 )
                 tool_results.append((tc, result, conv_index))
+
+            if tool_results and all(result.is_error for _, result, _ in tool_results):
+                consecutive_invalid_tool_turns += 1
+            else:
+                consecutive_invalid_tool_turns = 0
+
+            if consecutive_invalid_tool_turns >= invalid_tool_turn_limit:
+                final_text = build_non_convergence_message(
+                    invalid_tool_turns=consecutive_invalid_tool_turns,
+                    invalid_tool_turn_limit=invalid_tool_turn_limit,
+                )
+                task.status = TaskStatus.FAILED
+                task.result = final_text
+                failure_msg = Message.from_text(task.id, MessageRole.ASSISTANT, final_text)
+                failure_msg.token_count = self.provider.count_tokens(final_text)
+                await self.store.add_message(failure_msg)
+                conversation.append({"role": "assistant", "content": final_text})
+                if self.callbacks.on_message_end:
+                    await self.callbacks.on_message_end(usage)
+                if self.callbacks.on_text_delta:
+                    await self.callbacks.on_text_delta(final_text)
+                loop_completed_normally = False
+                break
 
             # Now emit on_message_end (after tool results are displayed)
             if self.callbacks.on_message_end:

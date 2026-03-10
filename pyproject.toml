@@ -48,4 +48,5 @@ testpaths = ["tests"]
 addopts = ["--import-mode=importlib"]
 markers = [
     "slow: marks tests as slow (E2E tests, require API key)",
+    "live_model_matrix: marks opt-in live cross-model certification tests",
 ]

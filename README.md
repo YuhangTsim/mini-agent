@@ -293,6 +293,12 @@ set +a
 # Run tool-calling E2E tests
 .venv/bin/pytest tests/test_e2e_tool_calling.py -v
 
+# Run live cross-model tool-calling certification
+set -a
+source .env
+set +a
+RUN_LIVE_MODEL_MATRIX=1 .venv/bin/pytest tests/test_e2e_tool_calling_certification.py -v -m live_model_matrix
+
 # Run with coverage
 .venv/bin/pytest --cov=open_agent --cov-report=html
 ```
@@ -301,6 +307,36 @@ Notes:
 - `source .env` alone is not enough if the file uses plain shell assignments. Use `set -a` / `set +a` so `pytest` subprocesses receive `OPENAI_API_KEY` or `OPENROUTER_API_KEY`.
 - E2E tests use test-local config derived from environment variables and temp working directories. They do not read `~/.mini-agent/config.toml`, so personal configs such as local proxies do not affect test results.
 - Real-provider E2E tests require outbound network access.
+- The live certification matrix is opt-in. Set `RUN_LIVE_MODEL_MATRIX=1` and optionally constrain targets with `E2E_TARGETS=openai_economy,claude_openrouter`.
+- Certification results are appended as JSON lines to `.mini-agent/tool-calling-certification.jsonl` by default.
+
+### Live Tool-Calling Certification
+
+The live certification suite exercises three framework behaviors per target model:
+- mandatory tool use
+- recovery after a tool error
+- structured non-convergence failure after repeated invalid tool turns
+
+Default target matrix:
+
+| Target Key | Route | Default Model |
+|------------|-------|---------------|
+| `openai_economy` | Direct OpenAI | `gpt-4o-mini` |
+| `claude_openrouter` | OpenRouter | `anthropic/claude-sonnet-4.5` |
+| `gemini_openrouter` | OpenRouter | `google/gemini-2.5-flash-lite` |
+| `minimax_openrouter` | OpenRouter | `minimax/minimax-m2.5` |
+| `kimi_openrouter` | OpenRouter | `moonshotai/kimi-k2.5` |
+
+These defaults can be overridden with:
+- `E2E_OPENAI_MODEL`
+- `E2E_OPENROUTER_CLAUDE_MODEL`
+- `E2E_OPENROUTER_GEMINI_MODEL`
+- `E2E_OPENROUTER_MINIMAX_MODEL`
+- `E2E_OPENROUTER_KIMI_MODEL`
+
+Verified status:
+- The default matrix above was run successfully on March 10, 2026 with `15 passed`.
+- Claude and Gemini are currently certified through OpenRouter. Direct-native Claude/Gemini certification remains a future addition.
 
 ### Test Structure
 
@@ -313,6 +349,7 @@ Notes:
 | `test_tools_native.py` | File ops, search, commands |
 | `test_e2e_cli.py` | CLI E2E tests |
 | `test_e2e_provider.py` | LLM provider E2E |
+| `test_e2e_tool_calling_certification.py` | Live cross-model tool-calling certification |
 
 ## Development
 

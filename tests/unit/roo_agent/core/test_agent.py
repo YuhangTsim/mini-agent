@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 
+from agent_kernel.tool_calling import TOOL_CALLING_FAILURE_PREFIX
 from agent_kernel.providers.base import StreamEvent, StreamEventType
 from agent_kernel.tools.base import BaseTool, ToolContext, ToolRegistry, ToolResult
 from agent_kernel.tools.permissions import PermissionRule
@@ -252,6 +253,56 @@ class TestAgentToolCalls:
             task=task, user_message="Bad args", conversation=[], system_prompt="."
         )
         assert result == "Recovered."
+        await store.close()
+
+    async def test_recovery_after_invalid_tool_turn(self, tmp_path):
+        provider = MockProvider([
+            make_tool_call_events("echo", "NOT VALID JSON"),
+            make_tool_call_events("echo", '{"message": "fixed"}'),
+            make_text_events("Recovered after retry."),
+        ])
+        settings = make_settings(tmp_path)
+        store = await make_store(tmp_path)
+        registry = make_registry(EchoTool())
+
+        agent = Agent(provider=provider, registry=registry, store=store, settings=settings)
+        task = Task(mode="code", status=TaskStatus.ACTIVE, working_directory=str(tmp_path))
+        await store.create_task(task)
+
+        result = await agent.run(
+            task=task, user_message="Recover from bad tool call", conversation=[], system_prompt="."
+        )
+
+        assert result == "Recovered after retry."
+        assert task.status == TaskStatus.ACTIVE
+        tool_calls = await store.get_tool_calls(task.id)
+        assert [tc.status for tc in tool_calls] == ["error", "success"]
+        await store.close()
+
+    async def test_two_invalid_tool_turns_returns_structured_failure(self, tmp_path):
+        provider = MockProvider([
+            make_tool_call_events("echo", "NOT VALID JSON", call_id="tc-001"),
+            make_tool_call_events("echo", "STILL BAD JSON", call_id="tc-002"),
+            make_text_events("Should not be reached."),
+        ])
+        settings = make_settings(tmp_path)
+        store = await make_store(tmp_path)
+        registry = make_registry(EchoTool())
+
+        agent = Agent(provider=provider, registry=registry, store=store, settings=settings)
+        task = Task(mode="code", status=TaskStatus.ACTIVE, working_directory=str(tmp_path))
+        await store.create_task(task)
+
+        result = await agent.run(
+            task=task, user_message="Keep failing", conversation=[], system_prompt="."
+        )
+
+        assert result.startswith(TOOL_CALLING_FAILURE_PREFIX)
+        assert task.status == TaskStatus.FAILED
+        assert "invalid_tool_turns" in result
+        assert provider._call_index == 2
+        messages = await store.get_messages(task.id)
+        assert messages[-1].content == result
         await store.close()
 
 
