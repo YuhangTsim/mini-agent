@@ -51,3 +51,85 @@ def test_settings_wiring_uses_placeholder_for_base_url_without_key(
     provider_registry.get_provider(settings.agents["orchestrator"])
 
     assert captured["api_key"] == "no-key-required"
+
+
+def test_provider_config_loads_model_from_config() -> None:
+    """ProviderConfig should load model from [provider] section in config."""
+    settings = Settings._from_dict(
+        {"provider": {"name": "openai", "api_key": "", "model": "gpt-4o-mini"}}
+    )
+    assert settings.provider.model == "gpt-4o-mini"
+
+
+def test_default_model_is_gpt_4_1() -> None:
+    """Default model should be gpt-4.1 when not specified anywhere."""
+    settings = Settings._from_dict({})
+    assert settings.provider.model == "gpt-4.1"
+
+
+def test_agent_uses_provider_model_as_fallback() -> None:
+    """Agents should use provider.model when they don't specify their own model."""
+    settings = Settings._from_dict(
+        {
+            "provider": {"model": "gpt-4o-mini"},
+            "open_agent": {
+                "agents": {
+                    "orchestrator": {}  # No model specified
+                }
+            },
+        }
+    )
+    # Verify provider has the specified model
+    assert settings.provider.model == "gpt-4o-mini"
+    # Verify orchestrator inherits the provider's model
+    assert settings.agents["orchestrator"].model == "gpt-4o-mini"
+
+
+def test_per_agent_model_override() -> None:
+    """Per-agent model in config should take precedence over provider.model."""
+    settings = Settings._from_dict(
+        {
+            "provider": {"model": "gpt-4o"},
+            "open_agent": {
+                "agents": {
+                    "orchestrator": {"model": "gpt-4o-mini"}  # Override provider model
+                }
+            },
+        }
+    )
+    # Provider is gpt-4o but agent override is gpt-4o-mini
+    assert settings.provider.model == "gpt-4o"
+    assert settings.agents["orchestrator"].model == "gpt-4o-mini"
+
+
+def test_all_agents_use_provider_model_when_no_explicit_config() -> None:
+    """All agents from DEFAULT_AGENTS should use provider.model when not in config."""
+    settings = Settings._from_dict(
+        {
+            "provider": {"model": "gpt-4o-mini"},
+            # No open_agent.agents section - all agents come from DEFAULT_AGENTS
+        }
+    )
+    # Verify provider model
+    assert settings.provider.model == "gpt-4o-mini"
+    # Verify all default agents use the provider's model
+    for role, agent_config in settings.agents.items():
+        assert agent_config.model == "gpt-4o-mini", f"Agent {role} should use provider.model"
+
+
+def test_compaction_uses_provider_model_fallback() -> None:
+    """CompactionSettings should use provider.model when not explicitly configured."""
+    settings = Settings._from_dict(
+        {
+            "provider": {"model": "gpt-4o"},
+        }
+    )
+    assert settings.compaction.model == "gpt-4o"
+
+
+def test_compaction_model_override() -> None:
+    """CompactionSettings model can be explicitly overridden."""
+    settings = Settings._from_dict(
+        {"provider": {"model": "gpt-4o"}, "open_agent": {"compaction": {"model": "gpt-4o-mini"}}}
+    )
+    assert settings.compaction.model == "gpt-4o-mini"

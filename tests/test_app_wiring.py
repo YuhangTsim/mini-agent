@@ -56,11 +56,11 @@ async def test_app_provider_registry():
     app = OpenAgentApp(settings)
     await app.initialize()
 
-    # Different agents can have different models
+    # All agents use the provider's model by default
     fixer_config = settings.agents["fixer"]
     explorer_config = settings.agents["explorer"]
-    assert fixer_config.model == "gpt-4o"
-    assert explorer_config.model == "gpt-4o-mini"
+    assert fixer_config.model == "gpt-4.1"  # Default provider model
+    assert explorer_config.model == "gpt-4.1"  # Default provider model
 
     await app.shutdown()
 
@@ -68,12 +68,12 @@ async def test_app_provider_registry():
 async def test_persistence_integration():
     """Test that persistence store is properly wired."""
     import tempfile
-    
+
     # Use a temp directory for isolation
     with tempfile.TemporaryDirectory() as tmpdir:
         settings = Settings()
         settings.data_dir = tmpdir
-        
+
         app = OpenAgentApp(settings)
         await app.initialize()
 

@@ -22,10 +22,10 @@ class TestMessageModel:
             is_compaction=True,
             summary="This is a summary",
         )
-        
+
         assert msg.is_compaction is True
         assert msg.summary == "This is a summary"
-    
+
     def test_message_to_row_with_compaction(self):
         """Test Message.to_row() includes compaction fields."""
         msg = Message(
@@ -34,10 +34,10 @@ class TestMessageModel:
             summary="Summary",
         )
         row = msg.to_row()
-        
+
         assert row["is_compaction"] == 1
         assert row["summary"] == "Summary"
-    
+
     def test_message_from_row_with_compaction(self):
         """Test Message.from_row() includes compaction fields."""
         row = {
@@ -50,9 +50,9 @@ class TestMessageModel:
             "summary": "Summary text",
             "created_at": "2024-01-01T00:00:00",
         }
-        
+
         msg = Message.from_row(row)
-        
+
         assert msg.is_compaction is True
         assert msg.summary == "Summary text"
 
@@ -69,12 +69,12 @@ class TestMessagePartModel:
             tool_name="read_file",
             tool_state={"status": "success"},
         )
-        
+
         assert part.message_id == "msg-1"
         assert part.part_type == "tool"
         assert part.tool_name == "read_file"
         assert part.tool_state["status"] == "success"
-    
+
     def test_message_part_to_row(self):
         """Test MessagePart.to_row()."""
         part = MessagePart(
@@ -84,14 +84,14 @@ class TestMessagePartModel:
             tool_name="search",
             tool_state={"status": "success", "count": 5},
         )
-        
+
         row = part.to_row()
-        
+
         assert row["message_id"] == "msg-1"
         assert row["part_type"] == "tool"
         assert row["tool_name"] == "search"
         assert '"status"' in row["tool_state"]
-    
+
     def test_message_part_from_row(self):
         """Test MessagePart.from_row()."""
         row = {
@@ -104,9 +104,9 @@ class TestMessagePartModel:
             "compacted_at": None,
             "created_at": "2024-01-01T00:00:00",
         }
-        
+
         part = MessagePart.from_row(row)
-        
+
         assert part.id == "part-1"
         assert part.part_type == "text"
         assert part.content == "Hello world"
@@ -119,13 +119,13 @@ class TestCompactionSettings:
     def test_default_settings(self):
         """Test default compaction settings."""
         settings = CompactionSettings()
-        
+
         assert settings.auto is True
         assert settings.auto_prune is True
         assert settings.prune_minimum == 20000
         assert settings.prune_protect == 40000
-        assert settings.model == "gpt-4o-mini"
-    
+        assert settings.model == "gpt-4.1"
+
     def test_custom_settings(self):
         """Test custom compaction settings."""
         settings = CompactionSettings(
@@ -135,7 +135,7 @@ class TestCompactionSettings:
             prune_protect=20000,
             model="gpt-4o",
         )
-        
+
         assert settings.auto is False
         assert settings.auto_prune is False
         assert settings.prune_minimum == 10000
@@ -153,7 +153,7 @@ class TestPruningResult:
             tool_calls_pruned=10,
             tools_affected=["read_file", "search_files"],
         )
-        
+
         assert result.tokens_pruned == 5000
         assert result.tool_calls_pruned == 10
         assert len(result.tools_affected) == 2
@@ -167,7 +167,7 @@ class TestPruningStrategy:
         """Test PruningStrategy initialization."""
         # Mock store - we'll test actual pruning with integration tests
         strategy = PruningStrategy(store=None, protect_tokens=30000)
-        
+
         assert strategy.protect_tokens == 30000
         assert strategy.PRUNE_MINIMUM == 20000
         assert strategy.PRUNE_PROTECT == 40000

@@ -37,7 +37,8 @@ class ProviderConfig:
     name: str = "openai"
     api_key: str = ""
     base_url: str | None = None
-    stream: bool = True  # Enable streaming by default
+    stream: bool = True
+    model: str = "gpt-4.1"  # Enable streaming by default
 
     def resolve_api_key(self) -> str | None:
         if self.api_key:
@@ -128,13 +129,13 @@ DEFAULT_AGENTS: dict[str, dict[str, Any]] = {
 @dataclass
 class CompactionSettings:
     """Compaction configuration for context management."""
-    
+
     enabled: bool = True  # Master switch for context management
     auto: bool = True  # Auto-compact when context is full
     auto_prune: bool = True
     prune_minimum: int = 20000
     prune_protect: int = 40000
-    model: str = "gpt-4o-mini"
+    model: str = "gpt-4.1"
 
 
 @dataclass
@@ -157,7 +158,10 @@ class Settings:
         # Load defaults for any agents not explicitly configured
         for role, defaults in DEFAULT_AGENTS.items():
             if role not in self.agents:
-                self.agents[role] = AgentConfig(**defaults)
+                # Use provider.model as default instead of hardcoded model
+                agent_defaults = dict(defaults)
+                agent_defaults["model"] = self.provider.model
+                self.agents[role] = AgentConfig(**agent_defaults)
 
     @property
     def db_path(self) -> str:
@@ -204,6 +208,7 @@ class Settings:
             api_key=prov_data.get("api_key", ""),
             base_url=prov_data.get("base_url"),
             stream=prov_data.get("stream", True),
+            model=prov_data.get("model", "gpt-4.1"),
         )
 
         # Unwrap the open_agent namespace from unified config
@@ -215,6 +220,8 @@ class Settings:
         for role, agent_data in agents_data.items():
             agent_data = dict(agent_data)  # copy to avoid mutating config
             agent_data.setdefault("role", role)
+            # Use provider.model as fallback if agent doesn't specify model
+            agent_data.setdefault("model", provider.model)
             agents[role] = AgentConfig(**agent_data)
 
         # Permissions: explicit [[permissions]] rules (highest priority)
@@ -223,14 +230,12 @@ class Settings:
         # Compile [open_agent.tool_approval] into low-priority PermissionRules
         tool_approval = oa.get("tool_approval", DEFAULT_TOOL_APPROVAL)
         for tool_pattern, policy_value in tool_approval.items():
-            permissions.append(
-                PermissionRule(agent="*", tool=tool_pattern, policy=policy_value)
-            )
+            permissions.append(PermissionRule(agent="*", tool=tool_pattern, policy=policy_value))
 
         # General settings: prefer open_agent section, fall back to top-level general
         general = oa or data.get("general", {})
         background = oa.get("background", data.get("background", {}))
-        
+
         # Compaction settings
         compaction_data = oa.get("compaction", {})
         compaction = CompactionSettings(
@@ -239,7 +244,7 @@ class Settings:
             auto_prune=compaction_data.get("auto_prune", True),
             prune_minimum=compaction_data.get("prune_minimum", 20000),
             prune_protect=compaction_data.get("prune_protect", 40000),
-            model=compaction_data.get("model", "gpt-4o-mini"),
+            model=compaction_data.get("model", provider.model),
         )
 
         return cls(
