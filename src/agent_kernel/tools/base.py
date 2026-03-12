@@ -41,6 +41,7 @@ class ToolContext:
     agent_role: str = ""
     working_directory: str = ""
     request_user_input: Callable[[str, list[str] | None], Awaitable[str]] | None = None
+    permission_checker: Any = None  # Optional PermissionChecker for security validation
 
 
 class BaseTool(ABC):

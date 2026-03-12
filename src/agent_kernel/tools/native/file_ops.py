@@ -3,9 +3,100 @@
 from __future__ import annotations
 
 import os
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from agent_kernel.tools.base import BaseTool, ToolContext, ToolResult
+
+if TYPE_CHECKING:
+    from agent_kernel.tools.permissions import PermissionChecker
+
+
+def _validate_and_resolve_path(
+    path: str,
+    working_directory: str,
+    agent_role: str,
+    permission_checker: "PermissionChecker | None" = None,
+) -> str:
+    """Resolve path and validate it's within working directory.
+
+    Policy: Block by default, allow override via permission approval.
+
+    Args:
+        path: The file path to validate (relative or absolute)
+        working_directory: The allowed working directory
+        agent_role: The agent role for permission checking
+        permission_checker: Optional permission checker for path_traversal policy
+
+    Returns:
+        The validated absolute path
+
+    Raises:
+        PermissionError: If path escapes working directory without permission
+    """
+    # Normalize the path - resolve .. and . components
+    if os.path.isabs(path):
+        full_path = os.path.abspath(path)
+    else:
+        # First join, then normalize to handle .. and . components
+        full_path = os.path.abspath(os.path.join(working_directory, path))
+
+    working_dir_abs = os.path.abspath(working_directory)
+
+    # Check if the normalized path is within working directory
+    # Use os.sep to ensure we're checking directory boundaries
+    if not (full_path == working_dir_abs or full_path.startswith(working_dir_abs + os.sep)):
+        # Path outside working dir - check permission if checker provided
+        if permission_checker is not None:
+            policy = permission_checker.check_normalized(
+                agent_role, "path_traversal", file_path=path
+            )
+            if policy != "auto_approve":
+                raise PermissionError(
+                    f"Path '{path}' is outside working directory. "
+                    f"Set permission 'path_traversal' to 'auto_approve' to allow."
+                )
+        else:
+            # No permission checker - block by default
+            raise PermissionError(
+                f"Path '{path}' is outside working directory. "
+                f"Set permission 'path_traversal' to 'auto_approve' to allow."
+            )
+
+    # Handle symlinks - resolve and validate symlinks within the working directory path
+    # Check each component of the path for symlinks, starting from the working directory
+    path_parts = full_path.split(os.sep)
+    working_parts = working_dir_abs.split(os.sep)
+
+    # Build up the path from the working directory level
+    current_path = working_dir_abs
+
+    # Skip the working directory parts and check subsequent components
+    for i in range(len(working_parts), len(path_parts)):
+        part = path_parts[i]
+        if not part:
+            continue
+        current_path = os.path.join(current_path, part)
+
+        # Only check if the path is within or under the working directory
+        if not (
+            current_path == working_dir_abs or current_path.startswith(working_dir_abs + os.sep)
+        ):
+            # Already outside working dir, no need to check further
+            break
+
+        # Check if current component is a symlink (only within working directory)
+        if os.path.islink(current_path):
+            # Resolve the symlink to its real target
+            resolved = os.path.realpath(current_path)
+            resolved_abs = os.path.abspath(resolved)
+
+            # Check if the resolved path is within working directory
+            if not (
+                resolved_abs == working_dir_abs or resolved_abs.startswith(working_dir_abs + os.sep)
+            ):
+                raise PermissionError(f"Symlink points outside working directory: {path}")
+
+    return full_path
 
 
 class ReadFileTool(BaseTool):
@@ -31,9 +122,16 @@ class ReadFileTool(BaseTool):
 
     async def execute(self, params: dict[str, Any], context: ToolContext) -> ToolResult:
         path = params["path"]
-        full_path = (
-            os.path.join(context.working_directory, path) if not os.path.isabs(path) else path
-        )
+
+        try:
+            full_path = _validate_and_resolve_path(
+                path=path,
+                working_directory=context.working_directory,
+                agent_role=context.agent_role,
+                permission_checker=context.permission_checker,
+            )
+        except PermissionError as e:
+            return ToolResult.failure(str(e))
 
         if not os.path.exists(full_path):
             return ToolResult.failure(f"File not found: {path}")
@@ -83,9 +181,16 @@ class WriteFileTool(BaseTool):
     async def execute(self, params: dict[str, Any], context: ToolContext) -> ToolResult:
         path = params["path"]
         content = params["content"]
-        full_path = (
-            os.path.join(context.working_directory, path) if not os.path.isabs(path) else path
-        )
+
+        try:
+            full_path = _validate_and_resolve_path(
+                path=path,
+                working_directory=context.working_directory,
+                agent_role=context.agent_role,
+                permission_checker=context.permission_checker,
+            )
+        except PermissionError as e:
+            return ToolResult.failure(str(e))
 
         try:
             os.makedirs(os.path.dirname(full_path), exist_ok=True)
@@ -128,9 +233,16 @@ class EditFileTool(BaseTool):
         path = params["path"]
         old_string = params["old_string"]
         new_string = params["new_string"]
-        full_path = (
-            os.path.join(context.working_directory, path) if not os.path.isabs(path) else path
-        )
+
+        try:
+            full_path = _validate_and_resolve_path(
+                path=path,
+                working_directory=context.working_directory,
+                agent_role=context.agent_role,
+                permission_checker=context.permission_checker,
+            )
+        except PermissionError as e:
+            return ToolResult.failure(str(e))
 
         if not os.path.exists(full_path):
             return ToolResult.failure(f"File not found: {path}")
